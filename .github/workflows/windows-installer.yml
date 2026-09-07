@@ -8,13 +8,16 @@ on:
 
 jobs:
   windows-installer:
-    runs-on: windows-latest
+    # windows-latest is now Server 2025 with Visual Studio 2026. The
+    # @electron/node-gyp fork used by Electron Forge does not recognise VS 18,
+    # so better-sqlite3 cannot compile. windows-2022 still has VS 2022.
+    runs-on: windows-2022
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
 
-      # node-gyp prefers `py -3`, which on windows-latest currently resolves to
-      # Python 3.14 and fails while compiling better-sqlite3.
+      # node-gyp prefers `py -3`, which on GitHub-hosted Windows currently
+      # resolves to a Python that fails while compiling better-sqlite3.
       - uses: actions/setup-python@v5
         id: setup-python
         with:
