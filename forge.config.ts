@@ -23,7 +23,10 @@ const config: ForgeConfig = {
     extraModules: ["better-sqlite3"],
   },
   makers: [
-    new MakerSquirrel({ name: "Gradebook" }),
+    new MakerSquirrel({
+      name: "Gradebook",
+      authors: "Eric Campbell",
+    }),
     new MakerZIP({}, ["win32", "darwin", "linux"]),
     new MakerRpm({}),
     new MakerDeb({}),

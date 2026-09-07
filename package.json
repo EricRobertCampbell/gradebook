@@ -3,6 +3,7 @@
   "productName": "Gradebook",
   "version": "0.0.1",
   "description": "A local desktop gradebook that stores data in SQLite.",
+  "author": "Eric Campbell",
   "private": true,
   "main": ".vite/build/main.js",
   "engines": {
