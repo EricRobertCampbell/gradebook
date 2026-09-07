@@ -1,0 +1,15 @@
+.back-link {
+  margin: 1.4rem 0 0;
+}
+
+.back-link a {
+  color: var(--colour-primary);
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.back-link a:hover {
+  color: var(--colour-primary-darker);
+}

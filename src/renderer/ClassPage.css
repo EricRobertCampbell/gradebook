@@ -1,0 +1,20 @@
+.class-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.class-heading h1 {
+  margin-bottom: 0;
+}
+
+.class-heading-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.class-section-heading {
+  margin: 1.4rem 0 0.85rem;
+  font-size: 1.25rem;
+}

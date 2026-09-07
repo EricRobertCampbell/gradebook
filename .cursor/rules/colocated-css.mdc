@@ -1,0 +1,17 @@
+---
+description: Keep component CSS next to the component that uses it
+globs: src/renderer/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# Colocated CSS
+
+Put styles for a component or page in a CSS file next to that file, and import the CSS from the component. Do not add new component styles to `src/renderer/styles.css`.
+
+```text
+Modal.tsx → Modal.css
+HomePage.tsx → HomePage.css
+icons/icon-button.css for shared icon-button chrome
+```
+
+Keep only design tokens, the document reset, and shared typography utilities (`.eyebrow`, `.lede`, `.muted`, `.visually-hidden`) in `styles.css`.

@@ -1,0 +1,602 @@
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import type {
+  GradeCategory,
+  GradeSubcategory,
+  GradeWork,
+} from "../../shared/ipc";
+import { parseRequiredNumber } from "../form-numbers";
+import {
+  copyCategory,
+  copySubcategory,
+  copyWork,
+  createCategory,
+  createSubcategory,
+  createWork,
+  deleteCategory,
+  deleteSubcategory,
+  deleteWork,
+  getGradingStructure,
+  updateCategory,
+  updateSubcategory,
+  updateWork,
+} from "../grading";
+import { describeError, type DisplayError } from "../errors";
+import "./ClassAssessmentSetup.css";
+import "./common/ActionButton.css";
+import "./common/Field.css";
+import { ConfirmDeleteModal } from "./common/ConfirmDeleteModal";
+import { ErrorDisplay } from "./common/ErrorDisplay";
+import { CopyIcon } from "./common/icons/CopyIcon";
+import { PencilIcon } from "./common/icons/PencilIcon";
+import { TrashIcon } from "./common/icons/TrashIcon";
+import "./common/icons/icon-button.css";
+import { Modal } from "./common/Modal";
+import "./common/RecordList.css";
+
+type ClassAssessmentSetupProps = {
+  schoolYearName: string;
+  classInternalName: string;
+};
+
+type Editor =
+  | { kind: "create-category" }
+  | { kind: "edit-category"; category: GradeCategory }
+  | { kind: "create-subcategory"; categoryId: number }
+  | { kind: "edit-subcategory"; subcategory: GradeSubcategory }
+  | { kind: "create-work"; subcategory: GradeSubcategory }
+  | { kind: "edit-work"; work: GradeWork };
+
+type PendingDelete =
+  | { kind: "category"; item: GradeCategory }
+  | { kind: "subcategory"; item: GradeSubcategory }
+  | { kind: "work"; item: GradeWork };
+
+type EditorFields = {
+  name: string;
+  notes: string;
+  weight: string;
+  maximumScore: string;
+};
+
+export function ClassAssessmentSetup({
+  schoolYearName,
+  classInternalName,
+}: ClassAssessmentSetupProps) {
+  const [categories, setCategories] = useState<Array<GradeCategory>>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<DisplayError | null>(null);
+  const [editor, setEditor] = useState<Editor | null>(null);
+  const [fields, setFields] = useState<EditorFields>(emptyFields());
+  const [editorError, setEditorError] = useState<DisplayError | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [copying, setCopying] = useState(false);
+
+  const loadStructure = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const structure = await getGradingStructure({
+        schoolYearName,
+        internalName: classInternalName,
+      });
+      setCategories(structure.categories);
+    } catch (caught) {
+      setCategories([]);
+      setError(describeError(caught, "The assessment setup could not be loaded."));
+    } finally {
+      setLoading(false);
+    }
+  }, [classInternalName, schoolYearName]);
+
+  useEffect(() => {
+    void loadStructure();
+  }, [loadStructure]);
+
+  function openEditor(next: Editor): void {
+    setEditor(next);
+    setEditorError(null);
+    setFields(fieldsForEditor(next));
+  }
+
+  function closeEditor(): void {
+    setEditor(null);
+    setEditorError(null);
+    setFields(emptyFields());
+  }
+
+  async function onSaveEditor(event: FormEvent): Promise<void> {
+    event.preventDefault();
+
+    if (!editor) {
+      return;
+    }
+
+    setSaving(true);
+    setEditorError(null);
+
+    try {
+      await saveEditor(editor, fields, schoolYearName, classInternalName);
+      closeEditor();
+      await loadStructure();
+    } catch (caught) {
+      setEditorError(describeError(caught, "Those details could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onCopy(kind: PendingDelete["kind"], id: number): Promise<void> {
+    setCopying(true);
+    setError(null);
+
+    try {
+      await copyItem(kind, id);
+      await loadStructure();
+    } catch (caught) {
+      setError(describeError(caught, "That item could not be copied."));
+    } finally {
+      setCopying(false);
+    }
+  }
+
+  async function onConfirmDelete(): Promise<void> {
+    if (!pendingDelete) {
+      return;
+    }
+
+    setDeleting(true);
+
+    try {
+      await deletePending(pendingDelete);
+      setPendingDelete(null);
+      await loadStructure();
+    } catch (caught) {
+      setError(describeError(caught, "That item could not be deleted."));
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="class-assessment-setup">
+      <h2 className="class-settings-heading">Assessments</h2>
+      <p className="lede">
+        Set up categories (units), sub-categories, and work. Weights are used for the class grade
+        table.
+      </p>
+
+      {loading ? (
+        <p className="muted" aria-live="polite">
+          Loading assessments…
+        </p>
+      ) : null}
+
+      {copying ? (
+        <p className="muted" aria-live="polite">
+          Copying…
+        </p>
+      ) : null}
+
+      <ErrorDisplay error={error} />
+
+      {!loading && categories.length === 0 ? (
+        <p className="muted">No categories yet. Add a unit to start organising marks.</p>
+      ) : null}
+
+      <ul className="grading-tree">
+        {categories.map((category) => (
+          <li key={category.id} className="grading-tree-group">
+            <div className="record-item">
+              <div className="grading-tree-label">
+                <strong>{category.name}</strong>
+                <span className="record-button-meta">
+                  Weight {category.weight}
+                  {category.notes ? ` · ${category.notes}` : ""}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Edit ${category.name}`}
+                disabled={copying || saving || deleting}
+                onClick={() => openEditor({ kind: "edit-category", category })}
+              >
+                <PencilIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Copy ${category.name}`}
+                disabled={copying || saving || deleting}
+                onClick={() => void onCopy("category", category.id)}
+              >
+                <CopyIcon />
+              </button>
+              <button
+                type="button"
+                className="icon-button icon-button--danger"
+                aria-label={`Delete ${category.name}`}
+                disabled={copying || saving || deleting}
+                onClick={() => setPendingDelete({ kind: "category", item: category })}
+              >
+                <TrashIcon />
+              </button>
+            </div>
+            <ul className="grading-tree grading-tree--nested">
+              {category.subcategories.map((subcategory) => (
+                <li key={subcategory.id} className="grading-tree-group">
+                  <div className="record-item">
+                    <div className="grading-tree-label">
+                      <strong>{subcategory.name}</strong>
+                      <span className="record-button-meta">
+                        Weight {subcategory.weight}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Edit ${subcategory.name}`}
+                      disabled={copying || saving || deleting}
+                      onClick={() => openEditor({ kind: "edit-subcategory", subcategory })}
+                    >
+                      <PencilIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Copy ${subcategory.name}`}
+                      disabled={copying || saving || deleting}
+                      onClick={() => void onCopy("subcategory", subcategory.id)}
+                    >
+                      <CopyIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button icon-button--danger"
+                      aria-label={`Delete ${subcategory.name}`}
+                      disabled={copying || saving || deleting}
+                      onClick={() => setPendingDelete({ kind: "subcategory", item: subcategory })}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                  <ul className="grading-tree grading-tree--nested">
+                    {subcategory.works.map((work) => (
+                      <li key={work.id} className="record-item">
+                        <div className="grading-tree-label">
+                          <strong>{work.name}</strong>
+                          <span className="record-button-meta">
+                            Maximum {work.maximumScore} · Weight {work.weight}
+                            {work.notes ? ` · ${work.notes}` : ""}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={`Edit ${work.name}`}
+                          disabled={copying || saving || deleting}
+                          onClick={() => openEditor({ kind: "edit-work", work })}
+                        >
+                          <PencilIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          aria-label={`Copy ${work.name}`}
+                          disabled={copying || saving || deleting}
+                          onClick={() => void onCopy("work", work.id)}
+                        >
+                          <CopyIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button icon-button--danger"
+                          aria-label={`Delete ${work.name}`}
+                          disabled={copying || saving || deleting}
+                          onClick={() => setPendingDelete({ kind: "work", item: work })}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="action-button action-button--secondary grading-tree-add"
+                    onClick={() => openEditor({ kind: "create-work", subcategory })}
+                  >
+                    Add work
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="action-button action-button--secondary grading-tree-add"
+              onClick={() => openEditor({ kind: "create-subcategory", categoryId: category.id })}
+            >
+              Add sub-category
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <button type="button" className="action-button record-add-button" onClick={() => openEditor({ kind: "create-category" })}>
+        Add category
+      </button>
+
+      <Modal title={editorTitle(editor)} open={editor !== null} onClose={closeEditor}>
+        <ErrorDisplay error={editorError} />
+        <form className="fields" onSubmit={(event) => void onSaveEditor(event)}>
+          <label className="field">
+            <span className="field-label">Name</span>
+            <input
+              type="text"
+              value={fields.name}
+              onChange={(event) => setFields({ ...fields, name: event.target.value })}
+              autoComplete="off"
+              disabled={saving}
+              required
+            />
+          </label>
+          {showsNotes(editor) ? (
+            <label className="field">
+              <span className="field-label">Notes</span>
+              <textarea
+                value={fields.notes}
+                onChange={(event) => setFields({ ...fields, notes: event.target.value })}
+                disabled={saving}
+              />
+            </label>
+          ) : null}
+          {showsMaximumScore(editor) ? (
+            <label className="field">
+              <span className="field-label">Maximum score</span>
+              <input
+                type="number"
+                step="any"
+                value={fields.maximumScore}
+                onChange={(event) => setFields({ ...fields, maximumScore: event.target.value })}
+                disabled={saving}
+                required
+              />
+            </label>
+          ) : null}
+          <label className="field">
+            <span className="field-label">Weight</span>
+            <input
+              type="number"
+              step="any"
+              value={fields.weight}
+              onChange={(event) => setFields({ ...fields, weight: event.target.value })}
+              disabled={saving}
+              required
+            />
+          </label>
+          <div className="modal-actions">
+            <button type="button" className="action-button action-button--secondary" onClick={closeEditor}>
+              Cancel
+            </button>
+            <button type="submit" className="action-button" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDeleteModal
+        title={deleteTitle(pendingDelete)}
+        open={pendingDelete !== null}
+        subjectName={pendingDelete?.item.name ?? ""}
+        prompt={deletePrompt(pendingDelete)}
+        deleting={deleting}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => void onConfirmDelete()}
+      />
+    </section>
+  );
+}
+
+function emptyFields(): EditorFields {
+  return { name: "", notes: "", weight: "1", maximumScore: "" };
+}
+
+function fieldsForEditor(editor: Editor): EditorFields {
+  if (editor.kind === "edit-category") {
+    return {
+      name: editor.category.name,
+      notes: editor.category.notes,
+      weight: String(editor.category.weight),
+      maximumScore: "",
+    };
+  }
+
+  if (editor.kind === "edit-subcategory") {
+    return {
+      name: editor.subcategory.name,
+      notes: "",
+      weight: String(editor.subcategory.weight),
+      maximumScore: "",
+    };
+  }
+
+  if (editor.kind === "edit-work") {
+    return {
+      name: editor.work.name,
+      notes: editor.work.notes,
+      weight: String(editor.work.weight),
+      maximumScore: String(editor.work.maximumScore),
+    };
+  }
+
+  if (editor.kind === "create-work") {
+    return {
+      name: "",
+      notes: "",
+      weight: "1",
+      maximumScore: "",
+    };
+  }
+
+  return emptyFields();
+}
+
+function showsNotes(editor: Editor | null): boolean {
+  return (
+    editor?.kind === "create-category" ||
+    editor?.kind === "edit-category" ||
+    editor?.kind === "create-work" ||
+    editor?.kind === "edit-work"
+  );
+}
+
+function showsMaximumScore(editor: Editor | null): boolean {
+  return editor?.kind === "create-work" || editor?.kind === "edit-work";
+}
+
+function editorTitle(editor: Editor | null): string {
+  switch (editor?.kind) {
+    case "create-category":
+      return "Add category";
+    case "edit-category":
+      return "Edit category";
+    case "create-subcategory":
+      return "Add sub-category";
+    case "edit-subcategory":
+      return "Edit sub-category";
+    case "create-work":
+      return "Add work";
+    case "edit-work":
+      return "Edit work";
+    default:
+      return "Assessment";
+  }
+}
+
+function deleteTitle(pending: PendingDelete | null): string {
+  if (pending?.kind === "subcategory") {
+    return "Delete sub-category";
+  }
+
+  if (pending?.kind === "work") {
+    return "Delete work";
+  }
+
+  return "Delete category";
+}
+
+function deletePrompt(pending: PendingDelete | null): string {
+  const name = pending?.item.name ?? "this item";
+
+  if (pending?.kind === "category") {
+    return `This will delete ${name} and every sub-category, work, and mark under it. Type the category name to confirm.`;
+  }
+
+  if (pending?.kind === "subcategory") {
+    return `This will delete ${name} and every piece of work and mark under it. Type the sub-category name to confirm.`;
+  }
+
+  return `This will delete ${name} and every mark for it. Type the work name to confirm.`;
+}
+
+async function saveEditor(
+  editor: Editor,
+  fields: EditorFields,
+  schoolYearName: string,
+  classInternalName: string,
+): Promise<void> {
+  const name = fields.name;
+  const weight = parseRequiredNumber(fields.weight, "A weight is required.");
+
+  if (editor.kind === "create-category") {
+    await createCategory({
+      schoolYearName,
+      internalName: classInternalName,
+      name,
+      notes: fields.notes,
+      weight,
+    });
+    return;
+  }
+
+  if (editor.kind === "edit-category") {
+    await updateCategory({
+      id: editor.category.id,
+      name,
+      notes: fields.notes,
+      weight,
+    });
+    return;
+  }
+
+  if (editor.kind === "create-subcategory") {
+    await createSubcategory({
+      categoryId: editor.categoryId,
+      name,
+      weight,
+    });
+    return;
+  }
+
+  if (editor.kind === "edit-subcategory") {
+    await updateSubcategory({
+      id: editor.subcategory.id,
+      name,
+      weight,
+    });
+    return;
+  }
+
+  const maximumScore = parseRequiredNumber(fields.maximumScore, "A maximum score is required.");
+
+  if (editor.kind === "create-work") {
+    await createWork({
+      subcategoryId: editor.subcategory.id,
+      name,
+      notes: fields.notes,
+      maximumScore,
+      weight,
+    });
+    return;
+  }
+
+  await updateWork({
+    id: editor.work.id,
+    name,
+    notes: fields.notes,
+    maximumScore,
+    weight,
+  });
+}
+
+async function copyItem(kind: PendingDelete["kind"], id: number): Promise<void> {
+  if (kind === "category") {
+    await copyCategory({ id });
+    return;
+  }
+
+  if (kind === "subcategory") {
+    await copySubcategory({ id });
+    return;
+  }
+
+  await copyWork({ id });
+}
+
+async function deletePending(pending: PendingDelete): Promise<void> {
+  if (pending.kind === "category") {
+    await deleteCategory({ id: pending.item.id });
+    return;
+  }
+
+  if (pending.kind === "subcategory") {
+    await deleteSubcategory({ id: pending.item.id });
+    return;
+  }
+
+  await deleteWork({ id: pending.item.id });
+}

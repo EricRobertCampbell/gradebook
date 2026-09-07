@@ -1,0 +1,15 @@
+.error-display {
+  margin: 0 0 1rem;
+  color: var(--colour-error);
+}
+
+.error-display-context,
+.error-display-detail {
+  margin: 0;
+  font-weight: 650;
+}
+
+.error-display-detail {
+  margin-top: 0.35rem;
+  font-weight: 500;
+}

@@ -1,0 +1,38 @@
+.class-assessment-setup {
+  margin-top: 0.4rem;
+}
+
+.grading-tree {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.grading-tree--nested {
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+  border-left: 2px solid color-mix(in srgb, var(--paper-dark) 70%, transparent);
+}
+
+.grading-tree-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.grading-tree-label {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0;
+}
+
+.grading-tree-label strong {
+  display: block;
+}
+
+.grading-tree-add {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+}

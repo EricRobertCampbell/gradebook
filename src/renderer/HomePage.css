@@ -1,0 +1,31 @@
+.home-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1.4rem;
+}
+
+.home-tab {
+  appearance: none;
+  border: 1px solid var(--paper-dark);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  background: var(--paper-light);
+  color: var(--colour-secondary);
+  font: inherit;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.home-tab:hover {
+  border-color: var(--colour-primary);
+  color: var(--colour-primary);
+}
+
+.home-tab[aria-selected="true"] {
+  background: var(--colour-primary);
+  border-color: var(--colour-primary);
+  color: var(--paper-light);
+}

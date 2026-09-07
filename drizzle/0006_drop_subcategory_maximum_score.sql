@@ -1,0 +1,1 @@
+ALTER TABLE `subcategories` DROP COLUMN `maximum_score`;

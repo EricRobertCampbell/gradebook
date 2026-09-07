@@ -1,0 +1,17 @@
+---
+description: Prefer Array<T> over T[] in TypeScript types
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Array types
+
+Write TypeScript array types as `Array<T>`, not `T[]`.
+
+```ts
+Promise<Array<SchoolYear>>
+useState<Array<Class>>([])
+const names: Array<string> = []
+```
+
+Keep `T[]` only where it is not a type annotation, such as empty array literals or tuple types.

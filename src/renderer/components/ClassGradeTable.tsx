@@ -1,0 +1,950 @@
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link } from "react-router-dom";
+import { formatGradePercent, formatWeightPercent, mean } from "../../shared/grades";
+import type {
+  Adjustment,
+  ClassGradebook,
+  GradeCategory,
+  GradeSubcategory,
+  GradeWork,
+  StudentGradeRow,
+  StudentWorkGrade,
+} from "../../shared/ipc";
+import { personDisplayName } from "../../shared/person-name";
+import { describeError, type DisplayError } from "../errors";
+import { numberInputValue, parseRequiredNumber } from "../form-numbers";
+import { deleteAssessment, upsertAssessment } from "../grading";
+import { studentClassDataPath, studentClassReportPath, studentPath } from "../paths";
+import "./ClassGradeTable.css";
+import { ErrorDisplay } from "./common/ErrorDisplay";
+import { ChevronIcon } from "./common/icons/ChevronIcon";
+import { DocumentIcon } from "./common/icons/DocumentIcon";
+import { GraphIcon } from "./common/icons/GraphIcon";
+import { PencilIcon } from "./common/icons/PencilIcon";
+import {
+  GradeAssessmentModal,
+  type AssessmentEditor,
+} from "./GradeAssessmentModal";
+import {
+  GradeStructureEditor,
+  type GradeStructureEditorTarget,
+} from "./GradeStructureEditor";
+
+type ClassGradeTableProps = {
+  gradebook: ClassGradebook;
+  classId: number;
+  onChanged: () => Promise<void>;
+};
+
+export function ClassGradeTable({ gradebook, classId, onChanged }: ClassGradeTableProps) {
+  const [tableError, setTableError] = useState<DisplayError | null>(null);
+  const [assessmentEditor, setAssessmentEditor] = useState<AssessmentEditor | null>(null);
+  const [structureEditor, setStructureEditor] = useState<GradeStructureEditorTarget | null>(null);
+  const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const [collapsedSubcategories, setCollapsedSubcategories] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const showSubcategoryRow = gradebook.categories.some(
+    (category) => !categoryIsCollapsed(category, collapsedCategories),
+  );
+  const showWorkRow = gradebook.categories.some(
+    (category) =>
+      !categoryIsCollapsed(category, collapsedCategories) &&
+      category.subcategories.some(
+        (subcategory) => !subcategoryIsCollapsed(subcategory, collapsedSubcategories),
+      ),
+  );
+  const headerRows = 1 + (showSubcategoryRow ? 1 : 0) + (showWorkRow ? 1 : 0);
+
+  return (
+    <div className="grade-table-wrap">
+      <ErrorDisplay error={tableError} />
+      <div className="grade-table-scroll">
+        <table className="grade-table">
+          <thead>
+            <tr>
+              <th className="grade-table-student" rowSpan={headerRows}>
+                Student
+              </th>
+              {gradebook.categories.map((category) => {
+                const collapsed = categoryIsCollapsed(category, collapsedCategories);
+                const canCollapse = canCollapseCategory(category);
+
+                return (
+                  <th
+                    key={category.id}
+                    className={collapsed ? "grade-table-header-bottom" : undefined}
+                    colSpan={categoryColumnCount(category, collapsedCategories, collapsedSubcategories)}
+                    rowSpan={collapsed ? headerRows : undefined}
+                  >
+                    <HeaderLabel
+                      name={category.name}
+                      description={category.notes}
+                      weight={category.weight}
+                      onEdit={() => setStructureEditor({ kind: "category", category })}
+                      editLabel={`Edit ${category.name}`}
+                      collapsed={collapsed}
+                      onToggleCollapse={
+                        canCollapse
+                          ? () =>
+                              setCollapsedCategories((current) =>
+                                toggleCollapsed(current, category.id),
+                              )
+                          : undefined
+                      }
+                      collapseLabel={
+                        canCollapse
+                          ? collapsed
+                            ? `Expand ${category.name}`
+                            : `Collapse ${category.name}`
+                          : undefined
+                      }
+                    />
+                  </th>
+                );
+              })}
+              <th className="grade-table-total" rowSpan={headerRows}>
+                Course
+              </th>
+            </tr>
+            {showSubcategoryRow ? (
+              <tr>
+                {gradebook.categories.map((category) =>
+                  categoryIsCollapsed(category, collapsedCategories) ? null : (
+                    <CategorySubheaders
+                      key={category.id}
+                      category={category}
+                      collapsedSubcategories={collapsedSubcategories}
+                      subcategoryRowSpan={showWorkRow ? 2 : 1}
+                      onToggleSubcategory={(subcategoryId) =>
+                        setCollapsedSubcategories((current) =>
+                          toggleCollapsed(current, subcategoryId),
+                        )
+                      }
+                      onEditSubcategory={(subcategory) =>
+                        setStructureEditor({ kind: "subcategory", subcategory })
+                      }
+                    />
+                  ),
+                )}
+              </tr>
+            ) : null}
+            {showWorkRow ? (
+              <tr>
+                {gradebook.categories.flatMap((category) => {
+                  if (categoryIsCollapsed(category, collapsedCategories)) {
+                    return [];
+                  }
+
+                  return category.subcategories.flatMap((subcategory) => {
+                    if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+                      return [];
+                    }
+
+                    return [
+                      ...subcategory.works.map((work) => (
+                        <th key={work.id} className="grade-table-work" colSpan={2}>
+                          <HeaderLabel
+                            name={work.name}
+                            description={work.notes}
+                            detail={`/${work.maximumScore}`}
+                            weight={work.weight}
+                            onEdit={() => setStructureEditor({ kind: "work", work })}
+                            editLabel={`Edit ${work.name}`}
+                          />
+                        </th>
+                      )),
+                      <th key={`sub-${subcategory.id}`} className="grade-table-summary">
+                        %
+                      </th>,
+                    ];
+                  });
+                })}
+              </tr>
+            ) : null}
+          </thead>
+          <tbody>
+            <AverageRow
+              gradebook={gradebook}
+              collapsedCategories={collapsedCategories}
+              collapsedSubcategories={collapsedSubcategories}
+            />
+            {gradebook.students.map((row) => (
+              <GradeRow
+                key={row.student.id}
+                gradebook={gradebook}
+                classId={classId}
+                row={row}
+                collapsedCategories={collapsedCategories}
+                collapsedSubcategories={collapsedSubcategories}
+                onChanged={onChanged}
+                onError={setTableError}
+                onOpenAssessment={(work, workGrade) =>
+                  setAssessmentEditor({
+                    studentId: row.student.id,
+                    studentName: personDisplayName(row.student),
+                    work,
+                    workGrade,
+                  })
+                }
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {assessmentEditor ? (
+        <GradeAssessmentModal
+          editor={latestEditor(gradebook, assessmentEditor)}
+          onClose={() => setAssessmentEditor(null)}
+          onChanged={onChanged}
+        />
+      ) : null}
+      {structureEditor ? (
+        <GradeStructureEditor
+          target={structureEditor}
+          onClose={() => setStructureEditor(null)}
+          onChanged={onChanged}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CategorySubheaders({
+  category,
+  collapsedSubcategories,
+  subcategoryRowSpan,
+  onToggleSubcategory,
+  onEditSubcategory,
+}: {
+  category: GradeCategory;
+  collapsedSubcategories: ReadonlySet<number>;
+  subcategoryRowSpan: number;
+  onToggleSubcategory: (subcategoryId: number) => void;
+  onEditSubcategory: (subcategory: GradeSubcategory) => void;
+}) {
+  return (
+    <>
+      {category.subcategories.map((subcategory) => {
+        const collapsed = subcategoryIsCollapsed(subcategory, collapsedSubcategories);
+        const canCollapse = canCollapseSubcategory(subcategory);
+
+        return (
+          <th
+            key={subcategory.id}
+            className={collapsed ? "grade-table-header-bottom" : undefined}
+            colSpan={collapsed ? 1 : subcategory.works.length * 2 + 1}
+            rowSpan={collapsed ? subcategoryRowSpan : undefined}
+          >
+            <HeaderLabel
+              name={subcategory.name}
+              weight={subcategory.weight}
+              onEdit={() => onEditSubcategory(subcategory)}
+              editLabel={`Edit ${subcategory.name}`}
+              collapsed={collapsed}
+              onToggleCollapse={
+                canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined
+              }
+              collapseLabel={
+                canCollapse
+                  ? collapsed
+                    ? `Expand ${subcategory.name}`
+                    : `Collapse ${subcategory.name}`
+                  : undefined
+              }
+            />
+          </th>
+        );
+      })}
+      <th className="grade-table-summary" rowSpan={subcategoryRowSpan}>
+        Unit
+      </th>
+    </>
+  );
+}
+
+function HeaderLabel({
+  name,
+  description,
+  detail,
+  weight,
+  onEdit,
+  editLabel,
+  collapsed,
+  onToggleCollapse,
+  collapseLabel,
+}: {
+  name: string;
+  description?: string;
+  detail?: string;
+  weight: number;
+  onEdit: () => void;
+  editLabel: string;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  collapseLabel?: string;
+}) {
+  return (
+    <div className="grade-header">
+      <div className="grade-header-title">
+        {onToggleCollapse && collapseLabel ? (
+          <button
+            type="button"
+            className="grade-header-edit"
+            aria-label={collapseLabel}
+            aria-expanded={!collapsed}
+            onClick={onToggleCollapse}
+          >
+            <ChevronIcon direction={collapsed ? "right" : "left"} />
+          </button>
+        ) : null}
+        <span>{name}</span>
+        <button type="button" className="grade-header-edit" aria-label={editLabel} onClick={onEdit}>
+          <PencilIcon />
+        </button>
+      </div>
+      {description ? <span className="grade-header-detail">{description}</span> : null}
+      {detail ? <span className="grade-header-detail">{detail}</span> : null}
+      <span className="grade-header-weight">{formatWeightPercent(weight)}</span>
+    </div>
+  );
+}
+
+function AverageRow({
+  gradebook,
+  collapsedCategories,
+  collapsedSubcategories,
+}: {
+  gradebook: ClassGradebook;
+  collapsedCategories: ReadonlySet<number>;
+  collapsedSubcategories: ReadonlySet<number>;
+}) {
+  const averages = classAverages(gradebook);
+
+  return (
+    <tr className="grade-table-average">
+      <th className="grade-table-student" scope="row">
+        Class average
+      </th>
+      {gradebook.categories.map((category, categoryIndex) => {
+        const categoryAverage = averages.categories[categoryIndex];
+
+        if (categoryIsCollapsed(category, collapsedCategories)) {
+          return (
+            <td key={category.id} className="grade-table-summary">
+              {formatGradePercent(categoryAverage?.percent ?? null)}
+            </td>
+          );
+        }
+
+        return (
+          <AverageCategoryCells
+            key={category.id}
+            category={category}
+            categoryAverage={categoryAverage}
+            collapsedSubcategories={collapsedSubcategories}
+          />
+        );
+      })}
+      <td className="grade-table-total">{formatGradePercent(averages.course)}</td>
+    </tr>
+  );
+}
+
+function AverageCategoryCells({
+  category,
+  categoryAverage,
+  collapsedSubcategories,
+}: {
+  category: GradeCategory;
+  categoryAverage: ClassAverages["categories"][number] | undefined;
+  collapsedSubcategories: ReadonlySet<number>;
+}) {
+  return (
+    <>
+      {category.subcategories.map((subcategory, subcategoryIndex) => {
+        const subcategoryAverage = categoryAverage?.subcategories[subcategoryIndex];
+
+        if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+          return (
+            <td key={subcategory.id} className="grade-table-summary">
+              {formatGradePercent(subcategoryAverage?.percent ?? null)}
+            </td>
+          );
+        }
+
+        return (
+          <AverageSubcategoryCells
+            key={subcategory.id}
+            subcategory={subcategory}
+            subcategoryAverage={subcategoryAverage}
+          />
+        );
+      })}
+      <td className="grade-table-summary">{formatGradePercent(categoryAverage?.percent ?? null)}</td>
+    </>
+  );
+}
+
+function AverageSubcategoryCells({
+  subcategory,
+  subcategoryAverage,
+}: {
+  subcategory: GradeSubcategory;
+  subcategoryAverage: ClassAverages["categories"][number]["subcategories"][number] | undefined;
+}) {
+  return (
+    <>
+      {subcategory.works.map((work, workIndex) => {
+        const workAverage = subcategoryAverage?.works[workIndex];
+
+        return (
+          <AverageWorkCells
+            key={work.id}
+            workName={work.name}
+            percent={workAverage?.percent ?? null}
+          />
+        );
+      })}
+      <td className="grade-table-summary">{formatGradePercent(subcategoryAverage?.percent ?? null)}</td>
+    </>
+  );
+}
+
+function AverageWorkCells({
+  workName,
+  percent,
+}: {
+  workName: string;
+  percent: number | null;
+}) {
+  return (
+    <>
+      <td className="grade-cell" />
+      <td className="grade-cell">
+        <span className="grade-percent" aria-label={`${workName} class average percent`}>
+          {formatGradePercent(percent)}
+        </span>
+      </td>
+    </>
+  );
+}
+
+function GradeRow({
+  gradebook,
+  classId,
+  row,
+  collapsedCategories,
+  collapsedSubcategories,
+  onChanged,
+  onError,
+  onOpenAssessment,
+}: {
+  gradebook: ClassGradebook;
+  classId: number;
+  row: StudentGradeRow;
+  collapsedCategories: ReadonlySet<number>;
+  collapsedSubcategories: ReadonlySet<number>;
+  onChanged: () => Promise<void>;
+  onError: (error: DisplayError | null) => void;
+  onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
+}) {
+  return (
+    <tr>
+      <th className="grade-table-student" scope="row">
+        <span className="grade-table-student-name">
+          <Link to={studentPath(row.student.id)}>{personDisplayName(row.student)}</Link>
+          <Link
+            to={studentClassDataPath(row.student.id, classId)}
+            className="grade-table-report"
+            aria-label={`Student data for ${personDisplayName(row.student)}`}
+          >
+            <GraphIcon />
+          </Link>
+          <Link
+            to={studentClassReportPath(row.student.id, classId)}
+            className="grade-table-report"
+            aria-label={`Individual report for ${personDisplayName(row.student)}`}
+          >
+            <DocumentIcon />
+          </Link>
+        </span>
+      </th>
+      {gradebook.categories.map((category, categoryIndex) => {
+        const categoryGrade = row.categories[categoryIndex];
+
+        return (
+          <CategoryCells
+            key={category.id}
+            category={category}
+            categoryPercent={categoryGrade?.percent ?? null}
+            subcategoryGrades={categoryGrade?.subcategories ?? []}
+            collapsed={categoryIsCollapsed(category, collapsedCategories)}
+            collapsedSubcategories={collapsedSubcategories}
+            studentId={row.student.id}
+            onChanged={onChanged}
+            onError={onError}
+            onOpenAssessment={onOpenAssessment}
+          />
+        );
+      })}
+      <td className="grade-table-total">{formatGradePercent(row.coursePercent)}</td>
+    </tr>
+  );
+}
+
+function CategoryCells({
+  category,
+  categoryPercent,
+  subcategoryGrades,
+  collapsed,
+  collapsedSubcategories,
+  studentId,
+  onChanged,
+  onError,
+  onOpenAssessment,
+}: {
+  category: GradeCategory;
+  categoryPercent: number | null;
+  subcategoryGrades: StudentGradeRow["categories"][number]["subcategories"];
+  collapsed: boolean;
+  collapsedSubcategories: ReadonlySet<number>;
+  studentId: number;
+  onChanged: () => Promise<void>;
+  onError: (error: DisplayError | null) => void;
+  onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
+}) {
+  if (collapsed) {
+    return <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>;
+  }
+
+  return (
+    <>
+      {category.subcategories.map((subcategory, subcategoryIndex) => {
+        const subcategoryGrade = subcategoryGrades[subcategoryIndex];
+
+        return (
+          <SubcategoryCells
+            key={subcategory.id}
+            subcategory={subcategory}
+            subcategoryPercent={subcategoryGrade?.percent ?? null}
+            workGrades={subcategoryGrade?.works ?? []}
+            collapsed={subcategoryIsCollapsed(subcategory, collapsedSubcategories)}
+            studentId={studentId}
+            onChanged={onChanged}
+            onError={onError}
+            onOpenAssessment={onOpenAssessment}
+          />
+        );
+      })}
+      <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>
+    </>
+  );
+}
+
+function SubcategoryCells({
+  subcategory,
+  subcategoryPercent,
+  workGrades,
+  collapsed,
+  studentId,
+  onChanged,
+  onError,
+  onOpenAssessment,
+}: {
+  subcategory: GradeSubcategory;
+  subcategoryPercent: number | null;
+  workGrades: Array<StudentWorkGrade>;
+  collapsed: boolean;
+  studentId: number;
+  onChanged: () => Promise<void>;
+  onError: (error: DisplayError | null) => void;
+  onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
+}) {
+  if (collapsed) {
+    return <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>;
+  }
+
+  return (
+    <>
+      {subcategory.works.map((work, workIndex) => {
+        const workGrade = workGrades[workIndex] ?? {
+          workId: work.id,
+          assessment: null,
+          adjustments: [],
+          percent: null,
+        };
+
+        return (
+          <MarkCells
+            key={work.id}
+            work={work}
+            workGrade={workGrade}
+            studentId={studentId}
+            onChanged={onChanged}
+            onError={onError}
+            onOpenAssessment={() => onOpenAssessment(work, workGrade)}
+          />
+        );
+      })}
+      <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>
+    </>
+  );
+}
+
+function MarkCells({
+  work,
+  workGrade,
+  studentId,
+  onChanged,
+  onError,
+  onOpenAssessment,
+}: {
+  work: GradeWork;
+  workGrade: StudentWorkGrade;
+  studentId: number;
+  onChanged: () => Promise<void>;
+  onError: (error: DisplayError | null) => void;
+  onOpenAssessment: () => void;
+}) {
+  const savedMark = markInputValue(workGrade.assessment);
+  const [draft, setDraft] = useState(savedMark);
+  const [saving, setSaving] = useState(false);
+  const exempt = workGrade.assessment?.status === "exempt";
+
+  useEffect(() => {
+    setDraft(savedMark);
+  }, [savedMark]);
+
+  async function saveScore(): Promise<void> {
+    const trimmed = draft.trim();
+    const current = workGrade.assessment;
+
+    if (trimmed === "" && !current) {
+      return;
+    }
+
+    if (trimmed === "" && current) {
+      setSaving(true);
+      onError(null);
+      try {
+        await deleteAssessment({ workId: work.id, studentId });
+        await onChanged();
+      } catch (caught) {
+        onError(describeError(caught, "The mark could not be cleared."));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (isExemptMark(trimmed)) {
+      if (current?.status === "exempt") {
+        return;
+      }
+
+      setSaving(true);
+      onError(null);
+
+      try {
+        await upsertAssessment({
+          workId: work.id,
+          studentId,
+          score: current?.score ?? 0,
+          status: "exempt",
+        });
+        await onChanged();
+      } catch (caught) {
+        onError(describeError(caught, "The mark could not be saved."));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    let score: number;
+
+    try {
+      score = parseRequiredNumber(trimmed, "Enter a mark or E.");
+    } catch (caught) {
+      onError(describeError(caught, "Enter a mark or E."));
+      return;
+    }
+
+    if (score === current?.score && current.status === "counted") {
+      return;
+    }
+
+    setSaving(true);
+    onError(null);
+
+    try {
+      await upsertAssessment({
+        workId: work.id,
+        studentId,
+        score,
+        status: "counted",
+      });
+      await onChanged();
+    } catch (caught) {
+      onError(describeError(caught, "The mark could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <td className={exempt ? "grade-cell grade-cell--exempt" : "grade-cell"}>
+        <div className="grade-score">
+          <input
+            className="grade-score-input"
+            type="text"
+            inputMode="decimal"
+            value={draft}
+            aria-label={`${work.name} mark`}
+            disabled={saving}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => void saveScore()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="grade-score-edit"
+            aria-label={`Edit ${work.name} assessment`}
+            disabled={saving}
+            onClick={onOpenAssessment}
+          >
+            <PencilIcon />
+          </button>
+        </div>
+      </td>
+      <td className={exempt ? "grade-cell grade-cell--exempt" : "grade-cell"}>
+        <span className="grade-percent">
+          {exempt ? "E" : formatGradePercent(workGrade.percent)}
+          {workGrade.adjustments.length > 0 ? (
+            <AdjustmentMarker workName={work.name} adjustments={workGrade.adjustments} />
+          ) : null}
+        </span>
+      </td>
+    </>
+  );
+}
+
+function AdjustmentMarker({
+  workName,
+  adjustments,
+}: {
+  workName: string;
+  adjustments: Array<Adjustment>;
+}) {
+  const tooltipId = useId();
+  const markRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
+  function show(): void {
+    const rect = markRef.current?.getBoundingClientRect();
+
+    if (rect) {
+      setCoords({ top: rect.bottom + 6, left: Math.max(8, rect.left - 8) });
+    }
+
+    setOpen(true);
+  }
+
+  return (
+    <>
+      <button
+        ref={markRef}
+        type="button"
+        className="grade-adjusted-mark"
+        aria-label={`Adjustments for ${workName}`}
+        aria-describedby={open ? tooltipId : undefined}
+        onMouseEnter={show}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={show}
+        onBlur={() => setOpen(false)}
+      >
+        *
+      </button>
+      {open
+        ? createPortal(
+            <div
+              id={tooltipId}
+              role="tooltip"
+              className="grade-adjusted-tooltip"
+              style={{ top: coords.top, left: coords.left }}
+            >
+              <ul>
+                {adjustments.map((adjustment) => (
+                  <li key={adjustment.id}>
+                    <strong>{adjustment.description}</strong>
+                    <span>{adjustmentTooltipDetail(adjustment)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
+type ClassAverages = ReturnType<typeof classAverages>;
+
+function classAverages(gradebook: ClassGradebook) {
+  const rows = gradebook.students;
+
+  return {
+    course: mean(rows.map((row) => row.coursePercent)),
+    categories: gradebook.categories.map((category, categoryIndex) => ({
+      percent: mean(rows.map((row) => row.categories[categoryIndex]?.percent ?? null)),
+      subcategories: category.subcategories.map((subcategory, subcategoryIndex) => ({
+        percent: mean(
+          rows.map(
+            (row) =>
+              row.categories[categoryIndex]?.subcategories[subcategoryIndex]?.percent ?? null,
+          ),
+        ),
+        works: subcategory.works.map((_work, workIndex) => {
+          const workGrades = rows.map(
+            (row) => row.categories[categoryIndex]?.subcategories[subcategoryIndex]?.works[workIndex],
+          );
+
+          return {
+            percent: mean(
+              workGrades.map((workGrade) =>
+                workGrade?.assessment?.status === "counted" ? workGrade.percent : null,
+              ),
+            ),
+          };
+        }),
+      })),
+    })),
+  };
+}
+
+function markInputValue(assessment: StudentWorkGrade["assessment"]): string {
+  if (!assessment) {
+    return "";
+  }
+
+  if (assessment.status === "exempt") {
+    return "E";
+  }
+
+  return numberInputValue(assessment.score);
+}
+
+function isExemptMark(value: string): boolean {
+  return value.toLowerCase() === "e";
+}
+
+function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): AssessmentEditor {
+  const row = gradebook.students.find((item) => item.student.id === editor.studentId);
+
+  if (!row) {
+    return editor;
+  }
+
+  for (const category of row.categories) {
+    for (const subcategory of category.subcategories) {
+      const workGrade = subcategory.works.find((item) => item.workId === editor.work.id);
+
+      if (workGrade) {
+        return { ...editor, workGrade };
+      }
+    }
+  }
+
+  return editor;
+}
+
+function canCollapseCategory(category: GradeCategory): boolean {
+  return category.subcategories.length > 1;
+}
+
+function canCollapseSubcategory(subcategory: GradeSubcategory): boolean {
+  return subcategory.works.length > 1;
+}
+
+function categoryIsCollapsed(
+  category: GradeCategory,
+  collapsedCategories: ReadonlySet<number>,
+): boolean {
+  return canCollapseCategory(category) && collapsedCategories.has(category.id);
+}
+
+function subcategoryIsCollapsed(
+  subcategory: GradeSubcategory,
+  collapsedSubcategories: ReadonlySet<number>,
+): boolean {
+  return canCollapseSubcategory(subcategory) && collapsedSubcategories.has(subcategory.id);
+}
+
+function categoryColumnCount(
+  category: GradeCategory,
+  collapsedCategories: ReadonlySet<number>,
+  collapsedSubcategories: ReadonlySet<number>,
+): number {
+  if (categoryIsCollapsed(category, collapsedCategories)) {
+    return 1;
+  }
+
+  return (
+    category.subcategories.reduce((sum, subcategory) => {
+      if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+        return sum + 1;
+      }
+
+      return sum + subcategory.works.length * 2 + 1;
+    }, 0) + 1
+  );
+}
+
+function toggleCollapsed(current: ReadonlySet<number>, id: number): ReadonlySet<number> {
+  const next = new Set(current);
+
+  if (next.has(id)) {
+    next.delete(id);
+  } else {
+    next.add(id);
+  }
+
+  return next;
+}
+
+function adjustmentTooltipDetail(adjustment: Adjustment): string {
+  const parts: Array<string> = [];
+
+  if (adjustment.rawChange !== null) {
+    parts.push(`Raw ${formatSigned(adjustment.rawChange)}`);
+  }
+
+  if (adjustment.percentChange !== null) {
+    parts.push(`Percent ${formatSigned(adjustment.percentChange)}`);
+  }
+
+  if (adjustment.notes) {
+    parts.push(adjustment.notes);
+  }
+
+  return parts.join(" · ");
+}
+
+function formatSigned(value: number): string {
+  if (value > 0) {
+    return `+${value}`;
+  }
+
+  return String(value);
+}

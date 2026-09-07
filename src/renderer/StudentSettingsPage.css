@@ -1,0 +1,18 @@
+.student-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.settings-danger {
+  margin-top: 1.8rem;
+}
+
+.settings-danger-heading {
+  margin: 0 0 0.65rem;
+  font-size: 1.25rem;
+}
+
+.settings-danger .muted {
+  margin-top: 0;
+}

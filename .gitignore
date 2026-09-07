@@ -1,0 +1,17 @@
+node_modules/
+.vite/
+out/
+dist/
+coverage/
+.data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+*.swn
+*~

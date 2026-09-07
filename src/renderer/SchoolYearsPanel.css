@@ -1,0 +1,28 @@
+.school-year-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.school-year-field {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.school-year-field input {
+  width: 100%;
+  appearance: none;
+  border: 1px solid var(--paper-dark);
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--paper-light);
+  color: var(--colour-secondary);
+  font: inherit;
+}
+
+.school-year-field input:focus {
+  outline: 2px solid var(--colour-primary);
+  outline-offset: 2px;
+}

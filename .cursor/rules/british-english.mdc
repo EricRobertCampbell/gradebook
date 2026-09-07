@@ -1,0 +1,18 @@
+---
+description: Use British English spellings in project writing and identifiers
+alwaysApply: true
+---
+
+# British English
+
+Use British spellings in comments, documentation, UI copy, commit messages, and identifiers we control.
+
+```text
+colour, not color
+initialise, not initialize
+behaviour, not behavior
+organise, not organize
+centre, not center (except CSS keywords)
+```
+
+Keep required American spellings from languages and APIs: CSS `color`, `color-mix`, `color-scheme`, `text-align: center`, and third-party names such as `initializeDatabase` from libraries we do not own.

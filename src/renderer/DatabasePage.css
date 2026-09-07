@@ -1,0 +1,33 @@
+.database-section {
+  margin: 0 0 1.8rem;
+}
+
+.database-section h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1.15rem;
+}
+
+.database-section .muted {
+  margin-bottom: 0.85rem;
+}
+
+.database-section .success {
+  margin-top: 0.85rem;
+}
+
+.status {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--paper-dark);
+  border-radius: 0.9rem;
+  background: var(--paper-light);
+}
+
+.status p {
+  line-height: 1.55;
+}
+
+.status .muted,
+.status .error-display {
+  margin: 0;
+}

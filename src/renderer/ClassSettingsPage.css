@@ -1,0 +1,24 @@
+.class-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.class-settings-heading {
+  margin: 1.8rem 0 0.85rem;
+  font-size: 1.25rem;
+}
+
+.class-add-student-list {
+  margin-bottom: 0;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.settings-danger {
+  margin-top: 1.8rem;
+}
+
+.settings-danger .class-settings-heading {
+  margin-top: 0;
+}

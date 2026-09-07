@@ -1,0 +1,12 @@
+.settings-danger {
+  margin-top: 1.8rem;
+}
+
+.settings-danger-heading {
+  margin: 0 0 0.65rem;
+  font-size: 1.25rem;
+}
+
+.settings-danger .muted {
+  margin-top: 0;
+}

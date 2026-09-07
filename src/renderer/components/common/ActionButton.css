@@ -1,0 +1,40 @@
+.action-button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.75rem 1.2rem;
+  background: var(--colour-primary);
+  color: var(--paper-light);
+  font: inherit;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.action-button:hover:not(:disabled) {
+  background: var(--colour-primary-darker);
+}
+
+.action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.action-button--secondary {
+  background: var(--paper-light);
+  color: var(--colour-secondary);
+  border: 1px solid var(--paper-dark);
+}
+
+.action-button--secondary:hover:not(:disabled) {
+  background: var(--paper);
+}
+
+.action-button--danger {
+  background: var(--colour-error);
+}
+
+.action-button--danger:hover:not(:disabled) {
+  background: var(--colour-error-darker);
+}

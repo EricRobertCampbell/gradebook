@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1788623679577,
+      "tag": "0000_initial_app_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788635691124,
+      "tag": "0001_school_years",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788650586594,
+      "tag": "0002_classes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788651033345,
+      "tag": "0003_class_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788651757807,
+      "tag": "0004_students_parents_enrolments",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788705257244,
+      "tag": "0005_grading",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788706237781,
+      "tag": "0006_drop_subcategory_maximum_score",
+      "breakpoints": true
+    }
+  ]
+}

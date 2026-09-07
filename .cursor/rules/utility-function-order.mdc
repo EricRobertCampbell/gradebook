@@ -1,0 +1,21 @@
+---
+description: Keep utility functions in their own file or below their callers
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Utility function placement
+
+Define helpers in a separate file, or below the function or component that calls them. Do not place file-local utilities above the exported function or component.
+
+```ts
+export function HomePage() {
+  return confirmName(pendingDelete);
+}
+
+function confirmName(value: string | null): boolean {
+  return value !== null;
+}
+```
+
+Shared helpers used from more than one place belong in their own module.

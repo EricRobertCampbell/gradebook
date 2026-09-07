@@ -1,0 +1,60 @@
+.year-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.year-heading h1 {
+  margin-bottom: 0;
+}
+
+.class-list {
+  list-style: none;
+  margin: 0 0 1.6rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.class-item {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.class-button {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--paper-dark);
+  border-radius: 0.9rem;
+  padding: 0.85rem 1.1rem;
+  background: var(--paper-light);
+  color: var(--colour-secondary);
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.class-button:hover {
+  border-color: var(--colour-primary);
+  color: var(--colour-primary);
+}
+
+.class-button-meta {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--colour-secondary-lighter);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.class-add-form .error-display {
+  margin-bottom: 0.85rem;
+}
+
+.class-add-button {
+  margin-top: 0.35rem;
+}
