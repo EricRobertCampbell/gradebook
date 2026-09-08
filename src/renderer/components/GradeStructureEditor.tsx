@@ -2,7 +2,14 @@ import { useState, type FormEvent } from "react";
 import type { GradeCategory, GradeSubcategory, GradeWork } from "../../shared/ipc";
 import { describeError, type DisplayError } from "../errors";
 import { parseRequiredNumber } from "../form-numbers";
-import { updateCategory, updateSubcategory, updateWork } from "../grading";
+import {
+  createCategory,
+  createSubcategory,
+  createWork,
+  updateCategory,
+  updateSubcategory,
+  updateWork,
+} from "../grading";
 import "./common/ActionButton.css";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import "./common/Field.css";
@@ -11,7 +18,10 @@ import { Modal } from "./common/Modal";
 export type GradeStructureEditorTarget =
   | { kind: "category"; category: GradeCategory }
   | { kind: "subcategory"; subcategory: GradeSubcategory }
-  | { kind: "work"; work: GradeWork };
+  | { kind: "work"; work: GradeWork }
+  | { kind: "create-category"; schoolYearName: string; internalName: string }
+  | { kind: "create-subcategory"; categoryId: number }
+  | { kind: "create-work"; subcategoryId: number };
 
 type GradeStructureEditorProps = {
   target: GradeStructureEditorTarget;
@@ -30,6 +40,7 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
   const [fields, setFields] = useState<EditorFields>(() => fieldsForTarget(target));
   const [error, setError] = useState<DisplayError | null>(null);
   const [saving, setSaving] = useState(false);
+  const creating = isCreateTarget(target);
 
   async function onSave(event: FormEvent): Promise<void> {
     event.preventDefault();
@@ -72,7 +83,7 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
             />
           </label>
         ) : null}
-        {target.kind === "work" ? (
+        {showsMaximumScore(target) ? (
           <label className="field">
             <span className="field-label">Maximum score</span>
             <input
@@ -101,12 +112,16 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
             Cancel
           </button>
           <button type="submit" className="action-button" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? (creating ? "Adding…" : "Saving…") : creating ? "Add" : "Save"}
           </button>
         </div>
       </form>
     </Modal>
   );
+}
+
+function emptyFields(): EditorFields {
+  return { name: "", notes: "", weight: "1", maximumScore: "" };
 }
 
 function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
@@ -128,39 +143,85 @@ function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
     };
   }
 
-  return {
-    name: target.work.name,
-    notes: target.work.notes,
-    weight: String(target.work.weight),
-    maximumScore: String(target.work.maximumScore),
-  };
+  if (target.kind === "work") {
+    return {
+      name: target.work.name,
+      notes: target.work.notes,
+      weight: String(target.work.weight),
+      maximumScore: String(target.work.maximumScore),
+    };
+  }
+
+  return emptyFields();
+}
+
+function isCreateTarget(target: GradeStructureEditorTarget): boolean {
+  return (
+    target.kind === "create-category" ||
+    target.kind === "create-subcategory" ||
+    target.kind === "create-work"
+  );
 }
 
 function showsNotes(target: GradeStructureEditorTarget): boolean {
-  return target.kind === "category" || target.kind === "work";
+  return (
+    target.kind === "category" ||
+    target.kind === "create-category" ||
+    target.kind === "work" ||
+    target.kind === "create-work"
+  );
+}
+
+function showsMaximumScore(target: GradeStructureEditorTarget): boolean {
+  return target.kind === "work" || target.kind === "create-work";
 }
 
 function editorTitle(target: GradeStructureEditorTarget): string {
-  if (target.kind === "subcategory") {
-    return "Edit sub-category";
+  switch (target.kind) {
+    case "create-category":
+      return "Add category";
+    case "create-subcategory":
+      return "Add sub-category";
+    case "create-work":
+      return "Add work";
+    case "subcategory":
+      return "Edit sub-category";
+    case "work":
+      return "Edit work";
+    default:
+      return "Edit category";
   }
-
-  if (target.kind === "work") {
-    return "Edit work";
-  }
-
-  return "Edit category";
 }
 
 async function saveTarget(target: GradeStructureEditorTarget, fields: EditorFields): Promise<void> {
   const name = fields.name;
   const weight = parseRequiredNumber(fields.weight, "A weight is required.");
 
+  if (target.kind === "create-category") {
+    await createCategory({
+      schoolYearName: target.schoolYearName,
+      internalName: target.internalName,
+      name,
+      notes: fields.notes,
+      weight,
+    });
+    return;
+  }
+
   if (target.kind === "category") {
     await updateCategory({
       id: target.category.id,
       name,
       notes: fields.notes,
+      weight,
+    });
+    return;
+  }
+
+  if (target.kind === "create-subcategory") {
+    await createSubcategory({
+      categoryId: target.categoryId,
+      name,
       weight,
     });
     return;
@@ -175,11 +236,24 @@ async function saveTarget(target: GradeStructureEditorTarget, fields: EditorFiel
     return;
   }
 
+  const maximumScore = parseRequiredNumber(fields.maximumScore, "A maximum score is required.");
+
+  if (target.kind === "create-work") {
+    await createWork({
+      subcategoryId: target.subcategoryId,
+      name,
+      notes: fields.notes,
+      maximumScore,
+      weight,
+    });
+    return;
+  }
+
   await updateWork({
     id: target.work.id,
     name,
     notes: fields.notes,
-    maximumScore: parseRequiredNumber(fields.maximumScore, "A maximum score is required."),
+    maximumScore,
     weight,
   });
 }

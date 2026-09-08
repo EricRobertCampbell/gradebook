@@ -115,13 +115,12 @@ export function ClassPage() {
       {!loading && gradebook && gradebook.students.length === 0 ? (
         <p className="muted">No students in this class yet. Add them from class settings.</p>
       ) : null}
-      {!loading && gradebook && gradebook.students.length > 0 && gradebook.categories.length === 0 ? (
-        <p className="muted">Set up categories and work from class settings to record marks.</p>
-      ) : null}
-      {gradebook && schoolClass && gradebook.students.length > 0 ? (
+      {gradebook && schoolClass && schoolYear ? (
         <ClassGradeTable
           gradebook={gradebook}
           classId={schoolClass.id}
+          schoolYearName={schoolYear.name}
+          classInternalName={schoolClass.internalName}
           onChanged={reloadGradebook}
         />
       ) : null}

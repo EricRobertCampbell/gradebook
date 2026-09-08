@@ -22,6 +22,7 @@ import { ChevronIcon } from "./common/icons/ChevronIcon";
 import { DocumentIcon } from "./common/icons/DocumentIcon";
 import { GraphIcon } from "./common/icons/GraphIcon";
 import { PencilIcon } from "./common/icons/PencilIcon";
+import { PlusIcon } from "./common/icons/PlusIcon";
 import {
   GradeAssessmentModal,
   type AssessmentEditor,
@@ -34,10 +35,18 @@ import {
 type ClassGradeTableProps = {
   gradebook: ClassGradebook;
   classId: number;
+  schoolYearName: string;
+  classInternalName: string;
   onChanged: () => Promise<void>;
 };
 
-export function ClassGradeTable({ gradebook, classId, onChanged }: ClassGradeTableProps) {
+export function ClassGradeTable({
+  gradebook,
+  classId,
+  schoolYearName,
+  classInternalName,
+  onChanged,
+}: ClassGradeTableProps) {
   const [tableError, setTableError] = useState<DisplayError | null>(null);
   const [assessmentEditor, setAssessmentEditor] = useState<AssessmentEditor | null>(null);
   const [structureEditor, setStructureEditor] = useState<GradeStructureEditorTarget | null>(null);
@@ -62,6 +71,25 @@ export function ClassGradeTable({ gradebook, classId, onChanged }: ClassGradeTab
   return (
     <div className="grade-table-wrap">
       <ErrorDisplay error={tableError} />
+      <div className="grade-table-toolbar">
+        <button
+          type="button"
+          className="grade-table-add-button"
+          onClick={() =>
+            setStructureEditor({
+              kind: "create-category",
+              schoolYearName,
+              internalName: classInternalName,
+            })
+          }
+        >
+          <PlusIcon />
+          Add category
+        </button>
+      </div>
+      {gradebook.categories.length === 0 ? (
+        <p className="muted">No categories yet. Add a category to start recording marks.</p>
+      ) : null}
       <div className="grade-table-scroll">
         <table className="grade-table">
           <thead>
@@ -86,6 +114,13 @@ export function ClassGradeTable({ gradebook, classId, onChanged }: ClassGradeTab
                       weight={category.weight}
                       onEdit={() => setStructureEditor({ kind: "category", category })}
                       editLabel={`Edit ${category.name}`}
+                      onAdd={() =>
+                        setStructureEditor({
+                          kind: "create-subcategory",
+                          categoryId: category.id,
+                        })
+                      }
+                      addLabel={`Add sub-category to ${category.name}`}
                       collapsed={collapsed}
                       onToggleCollapse={
                         canCollapse
@@ -126,6 +161,12 @@ export function ClassGradeTable({ gradebook, classId, onChanged }: ClassGradeTab
                       }
                       onEditSubcategory={(subcategory) =>
                         setStructureEditor({ kind: "subcategory", subcategory })
+                      }
+                      onAddWork={(subcategory) =>
+                        setStructureEditor({
+                          kind: "create-work",
+                          subcategoryId: subcategory.id,
+                        })
                       }
                     />
                   ),
@@ -219,12 +260,14 @@ function CategorySubheaders({
   subcategoryRowSpan,
   onToggleSubcategory,
   onEditSubcategory,
+  onAddWork,
 }: {
   category: GradeCategory;
   collapsedSubcategories: ReadonlySet<number>;
   subcategoryRowSpan: number;
   onToggleSubcategory: (subcategoryId: number) => void;
   onEditSubcategory: (subcategory: GradeSubcategory) => void;
+  onAddWork: (subcategory: GradeSubcategory) => void;
 }) {
   return (
     <>
@@ -244,6 +287,8 @@ function CategorySubheaders({
               weight={subcategory.weight}
               onEdit={() => onEditSubcategory(subcategory)}
               editLabel={`Edit ${subcategory.name}`}
+              onAdd={() => onAddWork(subcategory)}
+              addLabel={`Add work to ${subcategory.name}`}
               collapsed={collapsed}
               onToggleCollapse={
                 canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined
@@ -273,6 +318,8 @@ function HeaderLabel({
   weight,
   onEdit,
   editLabel,
+  onAdd,
+  addLabel,
   collapsed,
   onToggleCollapse,
   collapseLabel,
@@ -283,6 +330,8 @@ function HeaderLabel({
   weight: number;
   onEdit: () => void;
   editLabel: string;
+  onAdd?: () => void;
+  addLabel?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   collapseLabel?: string;
@@ -305,6 +354,11 @@ function HeaderLabel({
         <button type="button" className="grade-header-edit" aria-label={editLabel} onClick={onEdit}>
           <PencilIcon />
         </button>
+        {onAdd && addLabel ? (
+          <button type="button" className="grade-header-edit" aria-label={addLabel} onClick={onAdd}>
+            <PlusIcon />
+          </button>
+        ) : null}
       </div>
       {description ? <span className="grade-header-detail">{description}</span> : null}
       {detail ? <span className="grade-header-detail">{detail}</span> : null}

@@ -2,6 +2,44 @@
   margin-bottom: 1.4rem;
 }
 
+.grade-table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.65rem;
+}
+
+.grade-table-add-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--paper-dark);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  background: var(--paper-light);
+  color: var(--colour-secondary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.grade-table-add-button svg {
+  display: block;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.grade-table-add-button:hover {
+  background: var(--colour-primary);
+  border-color: var(--colour-primary);
+  color: var(--paper-light);
+}
+
+.grade-table-add-button:focus {
+  outline: 2px solid var(--colour-primary);
+  outline-offset: 1px;
+}
+
 .grade-table-scroll {
   overflow: auto;
   border: 1px solid var(--paper-dark);
