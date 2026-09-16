@@ -6,7 +6,9 @@ import {
   assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
+  markInputErrorMessage,
   mean,
+  parseSpecialMark,
 } from "../../shared/grades";
 import type {
   Adjustment,
@@ -810,9 +812,9 @@ function MarkCells({
     let score: number;
 
     try {
-      score = parseRequiredNumber(trimmed, "Enter a mark, E, or NHI.");
+      score = parseRequiredNumber(trimmed, markInputErrorMessage());
     } catch (caught) {
-      onError(describeError(caught, "Enter a mark, E, or NHI."));
+      onError(describeError(caught, markInputErrorMessage()));
       return;
     }
 
@@ -996,20 +998,6 @@ function markInputValue(assessment: StudentWorkGrade["assessment"]): string {
   }
 
   return assessmentStatusCode(assessment.status) ?? numberInputValue(assessment.score);
-}
-
-function parseSpecialMark(value: string): "exempt" | "nhi" | null {
-  const normalised = value.toLowerCase();
-
-  if (normalised === "e") {
-    return "exempt";
-  }
-
-  if (normalised === "nhi") {
-    return "nhi";
-  }
-
-  return null;
 }
 
 function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): AssessmentEditor {
