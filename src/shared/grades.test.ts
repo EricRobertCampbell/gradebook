@@ -5,7 +5,9 @@ import {
   assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
+  markInputErrorMessage,
   mean,
+  parseSpecialMark,
   weightedAverage,
 } from "./grades";
 
@@ -89,6 +91,34 @@ describe("assessmentStatusCode", () => {
     expect(assessmentStatusCode("exempt")).toBe("E");
     expect(assessmentStatusCode("nhi")).toBe("NHI");
     expect(assessmentStatusCode("counted")).toBeNull();
+  });
+});
+
+describe("parseSpecialMark", () => {
+  it("accepts exempt and not-handed-in codes without regard to case", () => {
+    expect(parseSpecialMark("E")).toBe("exempt");
+    expect(parseSpecialMark("e")).toBe("exempt");
+    expect(parseSpecialMark("NHI")).toBe("nhi");
+    expect(parseSpecialMark("nhi")).toBe("nhi");
+    expect(parseSpecialMark("Nhi")).toBe("nhi");
+    expect(parseSpecialMark("nHi")).toBe("nhi");
+  });
+
+  it("ignores surrounding whitespace", () => {
+    expect(parseSpecialMark("  nhi  ")).toBe("nhi");
+    expect(parseSpecialMark(" e ")).toBe("exempt");
+  });
+
+  it("returns null for ordinary marks and unknown codes", () => {
+    expect(parseSpecialMark("12")).toBeNull();
+    expect(parseSpecialMark("abc")).toBeNull();
+    expect(parseSpecialMark("")).toBeNull();
+  });
+});
+
+describe("markInputErrorMessage", () => {
+  it("lists every special mark code", () => {
+    expect(markInputErrorMessage()).toBe("Enter a mark, E, or NHI.");
   });
 });
 

@@ -68,15 +68,41 @@ export function assessmentCountsTowardAverage(status: string): boolean {
 }
 
 export function assessmentStatusCode(status: string): string | null {
-  if (status === "exempt") {
-    return "E";
-  }
-
-  if (status === "nhi") {
-    return "NHI";
+  for (const mark of SPECIAL_MARKS) {
+    if (mark.status === status) {
+      return mark.code;
+    }
   }
 
   return null;
+}
+
+export function parseSpecialMark(value: string): SpecialMarkStatus | null {
+  const normalised = value.trim().toLocaleLowerCase("en-GB");
+
+  for (const mark of SPECIAL_MARKS) {
+    if (mark.code.toLocaleLowerCase("en-GB") === normalised) {
+      return mark.status;
+    }
+  }
+
+  return null;
+}
+
+export function markInputErrorMessage(): string {
+  const codes = SPECIAL_MARKS.map((mark) => mark.code);
+  const last = codes.at(-1);
+
+  if (!last) {
+    return "Enter a mark.";
+  }
+
+  if (codes.length === 1) {
+    return `Enter a mark or ${last}.`;
+  }
+
+  const leading = codes.slice(0, -1).join(", ");
+  return `Enter a mark, ${leading}, or ${last}.`;
 }
 
 export function formatWeightPercent(weight: number): string {
@@ -86,3 +112,10 @@ export function formatWeightPercent(weight: number): string {
 
   return `${weight}%`;
 }
+
+const SPECIAL_MARKS = [
+  { code: "E", status: "exempt" },
+  { code: "NHI", status: "nhi" },
+] as const;
+
+type SpecialMarkStatus = (typeof SPECIAL_MARKS)[number]["status"];
