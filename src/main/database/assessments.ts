@@ -3,6 +3,7 @@ import {
   adjustmentCreateInputSchema,
   adjustmentUpdateInputSchema,
   assessmentLookupInputSchema,
+  assessmentStatusSchema,
   assessmentUpsertInputSchema,
   recordIdInputSchema,
   type Adjustment,
@@ -190,12 +191,14 @@ async function requireAdjustment(db: GradebookDatabase, adjustmentId: number): P
   return adjustment;
 }
 
-function parseStoredAssessment(row: typeof assessments.$inferSelect): Assessment {
-  if (row.status !== "counted" && row.status !== "exempt") {
+export function parseStoredAssessment(row: typeof assessments.$inferSelect): Assessment {
+  const status = assessmentStatusSchema.safeParse(row.status);
+
+  if (!status.success) {
     throw new Error("That assessment has an invalid status.");
   }
 
-  return { ...row, status: row.status };
+  return { ...row, status: status.data };
 }
 
 function todayIsoDate(): string {

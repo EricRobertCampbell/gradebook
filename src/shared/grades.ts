@@ -63,6 +63,22 @@ export function formatGradePercent(percent: number | null): string {
   return `${(percent * 100).toFixed(1)}%`;
 }
 
+export function assessmentCountsTowardAverage(status: string): boolean {
+  return status === "counted" || status === "nhi";
+}
+
+export function assessmentStatusCode(status: string): string | null {
+  if (status === "exempt") {
+    return "E";
+  }
+
+  if (status === "nhi") {
+    return "NHI";
+  }
+
+  return null;
+}
+
 export function formatWeightPercent(weight: number): string {
   if (!Number.isFinite(weight)) {
     return "—";

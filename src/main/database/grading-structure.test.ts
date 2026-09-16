@@ -76,6 +76,7 @@ describe("grading structure", () => {
         categories: [
           {
             ...category,
+            works: [],
             subcategories: [{ ...subcategory, works: [work] }],
           },
         ],
@@ -167,6 +168,7 @@ describe("grading structure", () => {
       const duplicatedCategory = structure.categories.find((item) => item.id === copiedCategory.id);
 
       expect(originalCategory?.subcategories).toHaveLength(2);
+      expect(duplicatedCategory?.works).toEqual([]);
       expect(duplicatedCategory?.subcategories).toEqual([
         expect.objectContaining({
           name: "Homework",
@@ -177,7 +179,122 @@ describe("grading structure", () => {
       sqlite.close();
     }
   });
+
+  it("creates, loads, and copies work that belongs to a category", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const { category, subcategory } = await seedScienceStructure(db);
+      const categoryWork = await createWork(db, {
+        categoryId: category.id,
+        name: "Unit test",
+        notes: "Directly on the unit",
+        maximumScore: 20,
+        weight: 1,
+      });
+
+      expect(categoryWork.categoryId).toBe(category.id);
+      expect(categoryWork.subcategoryId).toBeNull();
+
+      const structure = await getGradingStructure(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const loaded = structure.categories[0];
+
+      expect(loaded?.works).toEqual([categoryWork]);
+      expect(loaded?.subcategories).toEqual([
+        expect.objectContaining({ id: subcategory.id, works: [] }),
+      ]);
+
+      const copiedWork = await copyWork(db, { id: categoryWork.id });
+      expect(copiedWork.name).toBe("Copy of Unit test");
+      expect(copiedWork.categoryId).toBe(category.id);
+      expect(copiedWork.subcategoryId).toBeNull();
+
+      const copiedCategory = await copyCategory(db, { id: category.id });
+      const afterCopy = await getGradingStructure(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const duplicated = afterCopy.categories.find((item) => item.id === copiedCategory.id);
+
+      expect(duplicated?.works).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "Unit test",
+            categoryId: copiedCategory.id,
+            subcategoryId: null,
+          }),
+          expect.objectContaining({
+            name: "Copy of Unit test",
+            categoryId: copiedCategory.id,
+            subcategoryId: null,
+          }),
+        ]),
+      );
+      expect(duplicated?.works).toHaveLength(2);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("rejects work that belongs to both a category and a sub-category, or to neither", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const { category, subcategory } = await seedScienceStructure(db);
+
+      await expect(
+        createWork(db, {
+          name: "Orphan",
+          notes: "",
+          maximumScore: 10,
+          weight: 1,
+        }),
+      ).rejects.toThrow("Work must belong to a category or a sub-category, but not both.");
+
+      await expect(
+        createWork(db, {
+          categoryId: category.id,
+          subcategoryId: subcategory.id,
+          name: "Both",
+          notes: "",
+          maximumScore: 10,
+          weight: 1,
+        }),
+      ).rejects.toThrow("Work must belong to a category or a sub-category, but not both.");
+    } finally {
+      sqlite.close();
+    }
+  });
 });
+
+async function seedScienceStructure(db: Awaited<ReturnType<typeof openTestDatabase>>["db"]) {
+  await createSchoolYear(db, "2024-2025");
+  await createClass(db, {
+    schoolYearName: "2024-2025",
+    displayName: "Science",
+    internalName: "sci-9",
+    subject: "Science",
+    section: "9A",
+    notes: "Course description",
+  });
+  const category = await createCategory(db, {
+    schoolYearName: "2024-2025",
+    internalName: "sci-9",
+    name: "Unit 1",
+    notes: "Matter",
+    weight: 1,
+  });
+  const subcategory = await createSubcategory(db, {
+    categoryId: category.id,
+    name: "Homework",
+    weight: 2,
+  });
+
+  return { category, subcategory };
+}
 
 async function openTestDatabase() {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "gradebook-test-"));

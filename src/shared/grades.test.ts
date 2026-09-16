@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  assessmentCountsTowardAverage,
   assessmentPercent,
+  assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
   mean,
@@ -71,6 +73,22 @@ describe("formatGradePercent", () => {
   it("formats a ratio as a percentage", () => {
     expect(formatGradePercent(0.8)).toBe("80.0%");
     expect(formatGradePercent(null)).toBe("—");
+  });
+});
+
+describe("assessmentCountsTowardAverage", () => {
+  it("counts ordinary and not-handed-in marks, but not exemptions", () => {
+    expect(assessmentCountsTowardAverage("counted")).toBe(true);
+    expect(assessmentCountsTowardAverage("nhi")).toBe(true);
+    expect(assessmentCountsTowardAverage("exempt")).toBe(false);
+  });
+});
+
+describe("assessmentStatusCode", () => {
+  it("returns the displayed mark code for special statuses", () => {
+    expect(assessmentStatusCode("exempt")).toBe("E");
+    expect(assessmentStatusCode("nhi")).toBe("NHI");
+    expect(assessmentStatusCode("counted")).toBeNull();
   });
 });
 

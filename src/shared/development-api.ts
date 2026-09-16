@@ -73,6 +73,10 @@ export function categorySubcategoriesPath(categoryId: number): string {
   return `${categoryPath(categoryId)}/subcategories`;
 }
 
+export function categoryWorksPath(categoryId: number): string {
+  return `${categoryPath(categoryId)}/works`;
+}
+
 export function subcategoryPath(subcategoryId: number): string {
   return `${DEVELOPMENT_API_SUBCATEGORIES_PATH}/${subcategoryId}`;
 }

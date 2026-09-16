@@ -94,6 +94,84 @@ describe("class gradebook", () => {
     }
   });
 
+  it("counts not-handed-in assessments as zero", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const extraWork = await createWork(db, {
+        subcategoryId: setup.subcategory.id,
+        name: "Worksheet 2",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 10,
+      });
+      await upsertAssessment(db, {
+        workId: extraWork.id,
+        studentId: setup.student.id,
+        score: 8,
+        status: "nhi",
+      });
+
+      const gradebook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const subcategory = gradebook.students[0]?.categories[0]?.subcategories[0];
+      const nhiWork = subcategory?.works.find((workGrade) => workGrade.workId === extraWork.id);
+
+      expect(nhiWork?.assessment?.status).toBe("nhi");
+      expect(nhiWork?.percent).toBe(0);
+      expect(subcategory?.percent).toBe(0.5);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("averages category-level work with sub-categories", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const categoryWork = await createWork(db, {
+        categoryId: setup.category.id,
+        name: "Unit exam",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 10,
+      });
+      await upsertAssessment(db, {
+        workId: categoryWork.id,
+        studentId: setup.student.id,
+        score: 8,
+        status: "nhi",
+      });
+
+      const gradebook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const categoryGrade = gradebook.students[0]?.categories[0];
+      const nhiWork = categoryGrade?.works.find((workGrade) => workGrade.workId === categoryWork.id);
+
+      expect(categoryGrade?.subcategories[0]?.percent).toBe(1);
+      expect(nhiWork?.percent).toBe(0);
+      expect(categoryGrade?.percent).toBe(0.5);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it("clears a mark when the assessment is deleted", async () => {
     const { db, sqlite } = await openTestDatabase();
 

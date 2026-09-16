@@ -4,6 +4,7 @@ import {
   categoryCopyPath,
   categoryPath,
   categorySubcategoriesPath,
+  categoryWorksPath,
   classCategoriesPath,
   classGradebookPath,
   classGradingStructurePath,
@@ -265,9 +266,20 @@ export async function createWork(input: WorkCreateInput): Promise<Work> {
     return window.gradebook.works.create(parsed);
   }
 
+  const parentPath =
+    parsed.categoryId != null
+      ? categoryWorksPath(parsed.categoryId)
+      : parsed.subcategoryId != null
+        ? subcategoryWorksPath(parsed.subcategoryId)
+        : null;
+
+  if (!parentPath) {
+    throw new Error("Work must belong to a category or a sub-category, but not both.");
+  }
+
   return workSchema.parse(
     await requestDevelopmentApi(
-      subcategoryWorksPath(parsed.subcategoryId),
+      parentPath,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

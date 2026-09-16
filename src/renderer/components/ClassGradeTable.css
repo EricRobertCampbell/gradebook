@@ -223,6 +223,10 @@
   background: color-mix(in srgb, var(--colour-warning) 14%, var(--paper-light));
 }
 
+.grade-cell--nhi {
+  background: color-mix(in srgb, var(--colour-error) 12%, var(--paper-light));
+}
+
 .grade-score {
   display: flex;
   align-items: center;

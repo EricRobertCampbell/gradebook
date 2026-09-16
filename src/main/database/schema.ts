@@ -1,4 +1,5 @@
-import { integer, primaryKey, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, integer, primaryKey, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const appMetadata = sqliteTable("app_metadata", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -93,16 +94,29 @@ export const subcategories = sqliteTable("subcategories", {
   weight: real("weight").notNull(),
 });
 
-export const works = sqliteTable("works", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  subcategoryId: integer("subcategory_id")
-    .notNull()
-    .references(() => subcategories.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  notes: text("notes").notNull(),
-  maximumScore: real("maximum_score").notNull(),
-  weight: real("weight").notNull(),
-});
+export const works = sqliteTable(
+  "works",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+    subcategoryId: integer("subcategory_id").references(() => subcategories.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    notes: text("notes").notNull(),
+    maximumScore: real("maximum_score").notNull(),
+    weight: real("weight").notNull(),
+  },
+  (table) => [
+    check(
+      "works_one_parent",
+      sql`(
+        (${table.categoryId} IS NULL AND ${table.subcategoryId} IS NOT NULL)
+        OR (${table.categoryId} IS NOT NULL AND ${table.subcategoryId} IS NULL)
+      )`,
+    ),
+  ],
+);
 
 export const assessments = sqliteTable(
   "assessments",

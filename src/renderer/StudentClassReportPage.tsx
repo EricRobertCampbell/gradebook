@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { formatGradePercent, formatWeightPercent } from "../shared/grades";
+import { assessmentStatusCode, formatGradePercent, formatWeightPercent } from "../shared/grades";
 import type {
   Adjustment,
   Class,
@@ -172,6 +172,7 @@ function IndividualReportTable({
                 category={category}
                 percent={categoryGrade?.percent ?? null}
                 subcategoryGrades={categoryGrade?.subcategories ?? []}
+                workGrades={categoryGrade?.works ?? []}
               />
             );
           })}
@@ -192,10 +193,12 @@ function CategoryReportRows({
   category,
   percent,
   subcategoryGrades,
+  workGrades,
 }: {
   category: GradeCategory;
   percent: number | null;
   subcategoryGrades: StudentGradeRow["categories"][number]["subcategories"];
+  workGrades: Array<StudentWorkGrade>;
 }) {
   return (
     <>
@@ -209,6 +212,16 @@ function CategoryReportRows({
         <td />
         <td>{formatGradePercent(percent)}</td>
       </tr>
+      {category.works.map((work, workIndex) => {
+        const workGrade = workGrades[workIndex] ?? {
+          workId: work.id,
+          assessment: null,
+          adjustments: [],
+          percent: null,
+        };
+
+        return <WorkReportRow key={work.id} work={work} workGrade={workGrade} />;
+      })}
       {category.subcategories.map((subcategory, subcategoryIndex) => {
         const subcategoryGrade = subcategoryGrades[subcategoryIndex];
 
@@ -264,11 +277,16 @@ function WorkReportRow({
   work: GradeWork;
   workGrade: StudentWorkGrade;
 }) {
-  const exempt = workGrade.assessment?.status === "exempt";
+  const statusCode = workGrade.assessment
+    ? assessmentStatusCode(workGrade.assessment.status)
+    : null;
   const details = workDetails(work, workGrade);
+  const statusClassName = statusCode
+    ? `individual-report-work individual-report-work--${workGrade.assessment?.status}`
+    : "individual-report-work";
 
   return (
-    <tr className={exempt ? "individual-report-work individual-report-work--exempt" : "individual-report-work"}>
+    <tr className={statusClassName}>
       <th scope="row">
         <span>{work.name}</span>
         {details.length > 0 ? (
@@ -278,7 +296,7 @@ function WorkReportRow({
       <td>{formatWeightPercent(work.weight)}</td>
       <td>{reportScore(workGrade)}</td>
       <td>{numberInputValue(work.maximumScore)}</td>
-      <td>{exempt ? "E" : formatGradePercent(workGrade.percent)}</td>
+      <td>{statusCode ?? formatGradePercent(workGrade.percent)}</td>
     </tr>
   );
 }
@@ -326,11 +344,7 @@ function reportScore(workGrade: StudentWorkGrade): string {
     return "—";
   }
 
-  if (assessment.status === "exempt") {
-    return "E";
-  }
-
-  return numberInputValue(assessment.score);
+  return assessmentStatusCode(assessment.status) ?? numberInputValue(assessment.score);
 }
 
 function formatSigned(value: number): string {

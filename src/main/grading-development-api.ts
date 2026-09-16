@@ -176,6 +176,20 @@ async function handleRecordGradingRoute(
     }
   }
 
+  if (categoryApi && categoryApi.rest.length === 1 && categoryApi.rest[0] === "works") {
+    if (options.method === "POST") {
+      return {
+        statusCode: 201,
+        body: workSchema.parse(
+          await options.createWork({
+            categoryId: categoryApi.id,
+            ...readWorkFields(options.body),
+          }),
+        ),
+      };
+    }
+  }
+
   const subcategoryApi = idPath(options.pathname, DEVELOPMENT_API_SUBCATEGORIES_PATH);
   if (subcategoryApi && subcategoryApi.rest.length === 0) {
     if (options.method === "PATCH") {
@@ -387,7 +401,7 @@ function readAssessmentFields(body: unknown): {
   date?: string;
   weight?: number;
   notes?: string;
-  status?: "counted" | "exempt";
+  status?: "counted" | "exempt" | "nhi";
 } {
   const record = requireObject(body, "A score is required.");
   const fields: {
@@ -395,7 +409,7 @@ function readAssessmentFields(body: unknown): {
     date?: string;
     weight?: number;
     notes?: string;
-    status?: "counted" | "exempt";
+    status?: "counted" | "exempt" | "nhi";
   } = {
     score: readNumberField(record, "score", "A score is required."),
   };
@@ -414,8 +428,8 @@ function readAssessmentFields(body: unknown): {
 
   if ("status" in record && record.status !== undefined) {
     const status = readStringField(record, "status", "A status is required.");
-    if (status !== "counted" && status !== "exempt") {
-      throw new Error("A status must be counted or exempt.");
+    if (status !== "counted" && status !== "exempt" && status !== "nhi") {
+      throw new Error("A status must be counted, exempt, or nhi.");
     }
     fields.status = status;
   }

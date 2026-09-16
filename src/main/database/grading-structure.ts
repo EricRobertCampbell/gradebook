@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import {
   categoryCreateInputSchema,
   categoryUpdateInputSchema,
@@ -55,18 +55,23 @@ export async function loadGradingStructure(
           .where(inArray(subcategories.categoryId, categoryIds))
           .orderBy(asc(subcategories.name));
   const subcategoryIds = subcategoryRows.map((row) => row.id);
+  const workFilters = [
+    ...(categoryIds.length > 0 ? [inArray(works.categoryId, categoryIds)] : []),
+    ...(subcategoryIds.length > 0 ? [inArray(works.subcategoryId, subcategoryIds)] : []),
+  ];
   const workRows =
-    subcategoryIds.length === 0
+    workFilters.length === 0
       ? []
       : await db
           .select()
           .from(works)
-          .where(inArray(works.subcategoryId, subcategoryIds))
+          .where(or(...workFilters))
           .orderBy(asc(works.name));
 
   return {
     categories: categoryRows.map((category) => ({
       ...category,
+      works: workRows.filter((work) => work.categoryId === category.id),
       subcategories: subcategoryRows
         .filter((subcategory) => subcategory.categoryId === category.id)
         .map((subcategory) => ({
@@ -207,11 +212,12 @@ export async function deleteSubcategory(
 
 export async function createWork(db: GradebookDatabase, input: WorkCreateInput): Promise<Work> {
   const parsed = parseWorkCreate(input);
-  await requireSubcategory(db, parsed.subcategoryId);
+  await requireWorkParent(db, parsed);
   const created = await db
     .insert(works)
     .values({
-      subcategoryId: parsed.subcategoryId,
+      categoryId: parsed.categoryId ?? null,
+      subcategoryId: parsed.subcategoryId ?? null,
       name: parsed.name,
       notes: parsed.notes,
       maximumScore: parsed.maximumScore,
@@ -224,7 +230,7 @@ export async function createWork(db: GradebookDatabase, input: WorkCreateInput):
     throw new Error("The work could not be created.");
   }
 
-  return work;
+  return parseStoredWork(work);
 }
 
 export async function updateWork(db: GradebookDatabase, input: WorkUpdateInput): Promise<Work> {
@@ -246,7 +252,7 @@ export async function updateWork(db: GradebookDatabase, input: WorkUpdateInput):
     throw new Error("The work could not be updated.");
   }
 
-  return work;
+  return parseStoredWork(work);
 }
 
 export async function deleteWork(db: GradebookDatabase, input: RecordIdInput): Promise<DeleteResult> {
@@ -290,6 +296,23 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
     await duplicateSubcategory(db, subcategory, copy.id, subcategory.name);
   }
 
+  const sourceWorks = await db
+    .select()
+    .from(works)
+    .where(eq(works.categoryId, category.id))
+    .orderBy(asc(works.name));
+
+  for (const work of sourceWorks) {
+    await db.insert(works).values({
+      categoryId: copy.id,
+      subcategoryId: null,
+      name: work.name,
+      notes: work.notes,
+      maximumScore: work.maximumScore,
+      weight: work.weight,
+    });
+  }
+
   return copy;
 }
 
@@ -318,12 +341,17 @@ export async function copySubcategory(
 
 export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Promise<Work> {
   const work = await requireWork(db, parseRecordId(input, "That work was not found.").id);
-  const siblingNames = (
-    await db.select({ name: works.name }).from(works).where(eq(works.subcategoryId, work.subcategoryId))
-  ).map((row) => row.name);
+  const siblingFilter =
+    work.categoryId != null
+      ? eq(works.categoryId, work.categoryId)
+      : eq(works.subcategoryId, work.subcategoryId ?? 0);
+  const siblingNames = (await db.select({ name: works.name }).from(works).where(siblingFilter)).map(
+    (row) => row.name,
+  );
   const created = await db
     .insert(works)
     .values({
+      categoryId: work.categoryId,
       subcategoryId: work.subcategoryId,
       name: uniqueCopyName(work.name, siblingNames),
       notes: work.notes,
@@ -337,7 +365,7 @@ export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Pro
     throw new Error("The work could not be copied.");
   }
 
-  return copy;
+  return parseStoredWork(copy);
 }
 
 export async function requireCategory(db: GradebookDatabase, categoryId: number): Promise<Category> {
@@ -377,7 +405,7 @@ export async function requireWork(db: GradebookDatabase, workId: number): Promis
     throw new Error("That work was not found.");
   }
 
-  return work;
+  return parseStoredWork(work);
 }
 
 export async function requireWorkInClass(
@@ -386,8 +414,7 @@ export async function requireWorkInClass(
   studentId: number,
 ): Promise<{ work: Work; classId: number }> {
   const work = await requireWork(db, workId);
-  const subcategory = await requireSubcategory(db, work.subcategoryId);
-  const category = await requireCategory(db, subcategory.categoryId);
+  const category = await categoryForWork(db, work);
   const enrolment = await db
     .select()
     .from(classStudents)
@@ -402,9 +429,10 @@ export async function requireWorkInClass(
 }
 
 export function flattenWorks(structure: ClassGradingStructure): Array<Work> {
-  return structure.categories.flatMap((category: GradeCategory) =>
-    category.subcategories.flatMap((subcategory) => subcategory.works),
-  );
+  return structure.categories.flatMap((category: GradeCategory) => [
+    ...category.works,
+    ...category.subcategories.flatMap((subcategory) => subcategory.works),
+  ]);
 }
 
 async function duplicateSubcategory(
@@ -435,6 +463,7 @@ async function duplicateSubcategory(
 
   for (const work of sourceWorks) {
     await db.insert(works).values({
+      categoryId: null,
       subcategoryId: subcategory.id,
       name: work.name,
       notes: work.notes,
@@ -504,6 +533,41 @@ function parseSubcategoryUpdate(input: SubcategoryUpdateInput): SubcategoryUpdat
   }
 
   return result.data;
+}
+
+async function requireWorkParent(db: GradebookDatabase, input: WorkCreateInput): Promise<void> {
+  if (input.categoryId != null && input.subcategoryId == null) {
+    await requireCategory(db, input.categoryId);
+    return;
+  }
+
+  if (input.subcategoryId != null && input.categoryId == null) {
+    await requireSubcategory(db, input.subcategoryId);
+    return;
+  }
+
+  throw new Error("Work must belong to a category or a sub-category, but not both.");
+}
+
+async function categoryForWork(db: GradebookDatabase, work: Work): Promise<Category> {
+  if (work.categoryId != null) {
+    return requireCategory(db, work.categoryId);
+  }
+
+  if (work.subcategoryId == null) {
+    throw new Error("Work must belong to a category or a sub-category, but not both.");
+  }
+
+  const subcategory = await requireSubcategory(db, work.subcategoryId);
+  return requireCategory(db, subcategory.categoryId);
+}
+
+function parseStoredWork(row: typeof works.$inferSelect): Work {
+  if ((row.categoryId == null) === (row.subcategoryId == null)) {
+    throw new Error("Work must belong to a category or a sub-category, but not both.");
+  }
+
+  return row;
 }
 
 function parseWorkCreate(input: WorkCreateInput): WorkCreateInput {

@@ -21,6 +21,7 @@ export type GradeStructureEditorTarget =
   | { kind: "work"; work: GradeWork }
   | { kind: "create-category"; schoolYearName: string; internalName: string }
   | { kind: "create-subcategory"; categoryId: number }
+  | { kind: "create-work"; categoryId: number }
   | { kind: "create-work"; subcategoryId: number };
 
 type GradeStructureEditorProps = {
@@ -240,7 +241,9 @@ async function saveTarget(target: GradeStructureEditorTarget, fields: EditorFiel
 
   if (target.kind === "create-work") {
     await createWork({
-      subcategoryId: target.subcategoryId,
+      ...("categoryId" in target
+        ? { categoryId: target.categoryId }
+        : { subcategoryId: target.subcategoryId }),
       name,
       notes: fields.notes,
       maximumScore,

@@ -284,7 +284,7 @@ export const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
 
-export const assessmentStatusSchema = z.enum(["counted", "exempt"]);
+export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi"]);
 
 export const categoryFieldsSchema = z.object({
   name: requiredNameSchema,
@@ -336,18 +336,28 @@ export const workFieldsSchema = z.object({
   weight: weightSchema,
 });
 
-export const workSchema = z.object({
-  id: z.number().int(),
-  subcategoryId: z.number().int(),
-  name: z.string(),
-  notes: z.string(),
-  maximumScore: z.number(),
-  weight: z.number(),
-});
+export const workSchema = z
+  .object({
+    id: z.number().int(),
+    categoryId: z.number().int().nullable(),
+    subcategoryId: z.number().int().nullable(),
+    name: z.string(),
+    notes: z.string(),
+    maximumScore: z.number(),
+    weight: z.number(),
+  })
+  .refine((value) => (value.categoryId != null) !== (value.subcategoryId != null), {
+    message: "Work must belong to a category or a sub-category, but not both.",
+  });
 
-export const workCreateInputSchema = workFieldsSchema.extend({
-  subcategoryId: z.number().int().positive(),
-});
+export const workCreateInputSchema = workFieldsSchema
+  .extend({
+    categoryId: z.number().int().positive().optional(),
+    subcategoryId: z.number().int().positive().optional(),
+  })
+  .refine((value) => (value.categoryId != null) !== (value.subcategoryId != null), {
+    message: "Work must belong to a category or a sub-category, but not both.",
+  });
 
 export const workUpdateInputSchema = workFieldsSchema.extend({
   id: z.number().int().positive(),
@@ -419,6 +429,7 @@ export const gradeSubcategorySchema = subcategorySchema.extend({
 
 export const gradeCategorySchema = categorySchema.extend({
   subcategories: z.array(gradeSubcategorySchema),
+  works: z.array(gradeWorkSchema),
 });
 
 export const classGradingStructureSchema = z.object({
@@ -442,6 +453,7 @@ export const studentCategoryGradeSchema = z.object({
   categoryId: z.number().int(),
   percent: z.number().nullable(),
   subcategories: z.array(studentSubcategoryGradeSchema),
+  works: z.array(studentWorkGradeSchema),
 });
 
 export const studentGradeRowSchema = z.object({

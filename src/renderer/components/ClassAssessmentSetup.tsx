@@ -43,7 +43,8 @@ type Editor =
   | { kind: "edit-category"; category: GradeCategory }
   | { kind: "create-subcategory"; categoryId: number }
   | { kind: "edit-subcategory"; subcategory: GradeSubcategory }
-  | { kind: "create-work"; subcategory: GradeSubcategory }
+  | { kind: "create-work"; categoryId: number }
+  | { kind: "create-work"; subcategoryId: number }
   | { kind: "edit-work"; work: GradeWork };
 
 type PendingDelete =
@@ -227,6 +228,16 @@ export function ClassAssessmentSetup({
               </button>
             </div>
             <ul className="grading-tree grading-tree--nested">
+              {category.works.map((work) => (
+                <WorkSetupRow
+                  key={work.id}
+                  work={work}
+                  disabled={copying || saving || deleting}
+                  onEdit={() => openEditor({ kind: "edit-work", work })}
+                  onCopy={() => void onCopy("work", work.id)}
+                  onDelete={() => setPendingDelete({ kind: "work", item: work })}
+                />
+              ))}
               {category.subcategories.map((subcategory) => (
                 <li key={subcategory.id} className="grading-tree-group">
                   <div className="record-item">
@@ -266,61 +277,42 @@ export function ClassAssessmentSetup({
                   </div>
                   <ul className="grading-tree grading-tree--nested">
                     {subcategory.works.map((work) => (
-                      <li key={work.id} className="record-item">
-                        <div className="grading-tree-label">
-                          <strong>{work.name}</strong>
-                          <span className="record-button-meta">
-                            Maximum {work.maximumScore} · Weight {work.weight}
-                            {work.notes ? ` · ${work.notes}` : ""}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={`Edit ${work.name}`}
-                          disabled={copying || saving || deleting}
-                          onClick={() => openEditor({ kind: "edit-work", work })}
-                        >
-                          <PencilIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={`Copy ${work.name}`}
-                          disabled={copying || saving || deleting}
-                          onClick={() => void onCopy("work", work.id)}
-                        >
-                          <CopyIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button icon-button--danger"
-                          aria-label={`Delete ${work.name}`}
-                          disabled={copying || saving || deleting}
-                          onClick={() => setPendingDelete({ kind: "work", item: work })}
-                        >
-                          <TrashIcon />
-                        </button>
-                      </li>
+                      <WorkSetupRow
+                        key={work.id}
+                        work={work}
+                        disabled={copying || saving || deleting}
+                        onEdit={() => openEditor({ kind: "edit-work", work })}
+                        onCopy={() => void onCopy("work", work.id)}
+                        onDelete={() => setPendingDelete({ kind: "work", item: work })}
+                      />
                     ))}
                   </ul>
                   <button
                     type="button"
                     className="action-button action-button--secondary grading-tree-add"
-                    onClick={() => openEditor({ kind: "create-work", subcategory })}
+                    onClick={() => openEditor({ kind: "create-work", subcategoryId: subcategory.id })}
                   >
                     Add work
                   </button>
                 </li>
               ))}
             </ul>
-            <button
-              type="button"
-              className="action-button action-button--secondary grading-tree-add"
-              onClick={() => openEditor({ kind: "create-subcategory", categoryId: category.id })}
-            >
-              Add sub-category
-            </button>
+            <div className="grading-tree-add-row">
+              <button
+                type="button"
+                className="action-button action-button--secondary grading-tree-add"
+                onClick={() => openEditor({ kind: "create-work", categoryId: category.id })}
+              >
+                Add work
+              </button>
+              <button
+                type="button"
+                className="action-button action-button--secondary grading-tree-add"
+                onClick={() => openEditor({ kind: "create-subcategory", categoryId: category.id })}
+              >
+                Add sub-category
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -398,6 +390,59 @@ export function ClassAssessmentSetup({
         onConfirm={() => void onConfirmDelete()}
       />
     </section>
+  );
+}
+
+function WorkSetupRow({
+  work,
+  disabled,
+  onEdit,
+  onCopy,
+  onDelete,
+}: {
+  work: GradeWork;
+  disabled: boolean;
+  onEdit: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="record-item">
+      <div className="grading-tree-label">
+        <strong>{work.name}</strong>
+        <span className="record-button-meta">
+          Maximum {work.maximumScore} · Weight {work.weight}
+          {work.notes ? ` · ${work.notes}` : ""}
+        </span>
+      </div>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={`Edit ${work.name}`}
+        disabled={disabled}
+        onClick={onEdit}
+      >
+        <PencilIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={`Copy ${work.name}`}
+        disabled={disabled}
+        onClick={onCopy}
+      >
+        <CopyIcon />
+      </button>
+      <button
+        type="button"
+        className="icon-button icon-button--danger"
+        aria-label={`Delete ${work.name}`}
+        disabled={disabled}
+        onClick={onDelete}
+      >
+        <TrashIcon />
+      </button>
+    </li>
   );
 }
 
@@ -555,7 +600,9 @@ async function saveEditor(
 
   if (editor.kind === "create-work") {
     await createWork({
-      subcategoryId: editor.subcategory.id,
+      ...("categoryId" in editor
+        ? { categoryId: editor.categoryId }
+        : { subcategoryId: editor.subcategoryId }),
       name,
       notes: fields.notes,
       maximumScore,

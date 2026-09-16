@@ -1,7 +1,13 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { formatGradePercent, formatWeightPercent, mean } from "../../shared/grades";
+import {
+  assessmentCountsTowardAverage,
+  assessmentStatusCode,
+  formatGradePercent,
+  formatWeightPercent,
+  mean,
+} from "../../shared/grades";
 import type {
   Adjustment,
   ClassGradebook,
@@ -121,6 +127,13 @@ export function ClassGradeTable({
                         })
                       }
                       addLabel={`Add sub-category to ${category.name}`}
+                      onAddWork={() =>
+                        setStructureEditor({
+                          kind: "create-work",
+                          categoryId: category.id,
+                        })
+                      }
+                      addWorkLabel={`Add work to ${category.name}`}
                       collapsed={collapsed}
                       onToggleCollapse={
                         canCollapse
@@ -168,6 +181,7 @@ export function ClassGradeTable({
                           subcategoryId: subcategory.id,
                         })
                       }
+                      onEditWork={(work) => setStructureEditor({ kind: "work", work })}
                     />
                   ),
                 )}
@@ -261,6 +275,7 @@ function CategorySubheaders({
   onToggleSubcategory,
   onEditSubcategory,
   onAddWork,
+  onEditWork,
 }: {
   category: GradeCategory;
   collapsedSubcategories: ReadonlySet<number>;
@@ -268,6 +283,7 @@ function CategorySubheaders({
   onToggleSubcategory: (subcategoryId: number) => void;
   onEditSubcategory: (subcategory: GradeSubcategory) => void;
   onAddWork: (subcategory: GradeSubcategory) => void;
+  onEditWork: (work: GradeWork) => void;
 }) {
   return (
     <>
@@ -304,6 +320,23 @@ function CategorySubheaders({
           </th>
         );
       })}
+      {category.works.map((work) => (
+        <th
+          key={`category-work-${work.id}`}
+          className="grade-table-work grade-table-header-bottom"
+          colSpan={2}
+          rowSpan={subcategoryRowSpan}
+        >
+          <HeaderLabel
+            name={work.name}
+            description={work.notes}
+            detail={`/${work.maximumScore}`}
+            weight={work.weight}
+            onEdit={() => onEditWork(work)}
+            editLabel={`Edit ${work.name}`}
+          />
+        </th>
+      ))}
       <th className="grade-table-summary" rowSpan={subcategoryRowSpan}>
         Unit
       </th>
@@ -320,6 +353,8 @@ function HeaderLabel({
   editLabel,
   onAdd,
   addLabel,
+  onAddWork,
+  addWorkLabel,
   collapsed,
   onToggleCollapse,
   collapseLabel,
@@ -332,6 +367,8 @@ function HeaderLabel({
   editLabel: string;
   onAdd?: () => void;
   addLabel?: string;
+  onAddWork?: () => void;
+  addWorkLabel?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   collapseLabel?: string;
@@ -356,6 +393,16 @@ function HeaderLabel({
         </button>
         {onAdd && addLabel ? (
           <button type="button" className="grade-header-edit" aria-label={addLabel} onClick={onAdd}>
+            <PlusIcon />
+          </button>
+        ) : null}
+        {onAddWork && addWorkLabel ? (
+          <button
+            type="button"
+            className="grade-header-edit"
+            aria-label={addWorkLabel}
+            onClick={onAddWork}
+          >
             <PlusIcon />
           </button>
         ) : null}
@@ -435,6 +482,17 @@ function AverageCategoryCells({
             key={subcategory.id}
             subcategory={subcategory}
             subcategoryAverage={subcategoryAverage}
+          />
+        );
+      })}
+      {category.works.map((work, workIndex) => {
+        const workAverage = categoryAverage?.works[workIndex];
+
+        return (
+          <AverageWorkCells
+            key={work.id}
+            workName={work.name}
+            percent={workAverage?.percent ?? null}
           />
         );
       })}
@@ -536,6 +594,7 @@ function GradeRow({
             category={category}
             categoryPercent={categoryGrade?.percent ?? null}
             subcategoryGrades={categoryGrade?.subcategories ?? []}
+            workGrades={categoryGrade?.works ?? []}
             collapsed={categoryIsCollapsed(category, collapsedCategories)}
             collapsedSubcategories={collapsedSubcategories}
             studentId={row.student.id}
@@ -554,6 +613,7 @@ function CategoryCells({
   category,
   categoryPercent,
   subcategoryGrades,
+  workGrades,
   collapsed,
   collapsedSubcategories,
   studentId,
@@ -564,6 +624,7 @@ function CategoryCells({
   category: GradeCategory;
   categoryPercent: number | null;
   subcategoryGrades: StudentGradeRow["categories"][number]["subcategories"];
+  workGrades: Array<StudentWorkGrade>;
   collapsed: boolean;
   collapsedSubcategories: ReadonlySet<number>;
   studentId: number;
@@ -591,6 +652,26 @@ function CategoryCells({
             onChanged={onChanged}
             onError={onError}
             onOpenAssessment={onOpenAssessment}
+          />
+        );
+      })}
+      {category.works.map((work, workIndex) => {
+        const workGrade = workGrades[workIndex] ?? {
+          workId: work.id,
+          assessment: null,
+          adjustments: [],
+          percent: null,
+        };
+
+        return (
+          <MarkCells
+            key={work.id}
+            work={work}
+            workGrade={workGrade}
+            studentId={studentId}
+            onChanged={onChanged}
+            onError={onError}
+            onOpenAssessment={() => onOpenAssessment(work, workGrade)}
           />
         );
       })}
@@ -667,7 +748,12 @@ function MarkCells({
   const savedMark = markInputValue(workGrade.assessment);
   const [draft, setDraft] = useState(savedMark);
   const [saving, setSaving] = useState(false);
-  const exempt = workGrade.assessment?.status === "exempt";
+  const statusCode = workGrade.assessment
+    ? assessmentStatusCode(workGrade.assessment.status)
+    : null;
+  const cellClassName = statusCode
+    ? `grade-cell grade-cell--${workGrade.assessment?.status}`
+    : "grade-cell";
 
   useEffect(() => {
     setDraft(savedMark);
@@ -695,8 +781,10 @@ function MarkCells({
       return;
     }
 
-    if (isExemptMark(trimmed)) {
-      if (current?.status === "exempt") {
+    const specialStatus = parseSpecialMark(trimmed);
+
+    if (specialStatus) {
+      if (current?.status === specialStatus) {
         return;
       }
 
@@ -707,8 +795,8 @@ function MarkCells({
         await upsertAssessment({
           workId: work.id,
           studentId,
-          score: current?.score ?? 0,
-          status: "exempt",
+          score: specialStatus === "nhi" ? 0 : (current?.score ?? 0),
+          status: specialStatus,
         });
         await onChanged();
       } catch (caught) {
@@ -722,9 +810,9 @@ function MarkCells({
     let score: number;
 
     try {
-      score = parseRequiredNumber(trimmed, "Enter a mark or E.");
+      score = parseRequiredNumber(trimmed, "Enter a mark, E, or NHI.");
     } catch (caught) {
-      onError(describeError(caught, "Enter a mark or E."));
+      onError(describeError(caught, "Enter a mark, E, or NHI."));
       return;
     }
 
@@ -752,7 +840,7 @@ function MarkCells({
 
   return (
     <>
-      <td className={exempt ? "grade-cell grade-cell--exempt" : "grade-cell"}>
+      <td className={cellClassName}>
         <div className="grade-score">
           <input
             className="grade-score-input"
@@ -780,9 +868,9 @@ function MarkCells({
           </button>
         </div>
       </td>
-      <td className={exempt ? "grade-cell grade-cell--exempt" : "grade-cell"}>
+      <td className={cellClassName}>
         <span className="grade-percent">
-          {exempt ? "E" : formatGradePercent(workGrade.percent)}
+          {statusCode ?? formatGradePercent(workGrade.percent)}
           {workGrade.adjustments.length > 0 ? (
             <AdjustmentMarker workName={work.name} adjustments={workGrade.adjustments} />
           ) : null}
@@ -862,6 +950,18 @@ function classAverages(gradebook: ClassGradebook) {
     course: mean(rows.map((row) => row.coursePercent)),
     categories: gradebook.categories.map((category, categoryIndex) => ({
       percent: mean(rows.map((row) => row.categories[categoryIndex]?.percent ?? null)),
+      works: category.works.map((_work, workIndex) => ({
+        percent: mean(
+          rows.map((row) => {
+            const workGrade = row.categories[categoryIndex]?.works[workIndex];
+
+            return workGrade?.assessment &&
+              assessmentCountsTowardAverage(workGrade.assessment.status)
+              ? workGrade.percent
+              : null;
+          }),
+        ),
+      })),
       subcategories: category.subcategories.map((subcategory, subcategoryIndex) => ({
         percent: mean(
           rows.map(
@@ -877,7 +977,10 @@ function classAverages(gradebook: ClassGradebook) {
           return {
             percent: mean(
               workGrades.map((workGrade) =>
-                workGrade?.assessment?.status === "counted" ? workGrade.percent : null,
+                workGrade?.assessment &&
+                assessmentCountsTowardAverage(workGrade.assessment.status)
+                  ? workGrade.percent
+                  : null,
               ),
             ),
           };
@@ -892,15 +995,21 @@ function markInputValue(assessment: StudentWorkGrade["assessment"]): string {
     return "";
   }
 
-  if (assessment.status === "exempt") {
-    return "E";
-  }
-
-  return numberInputValue(assessment.score);
+  return assessmentStatusCode(assessment.status) ?? numberInputValue(assessment.score);
 }
 
-function isExemptMark(value: string): boolean {
-  return value.toLowerCase() === "e";
+function parseSpecialMark(value: string): "exempt" | "nhi" | null {
+  const normalised = value.toLowerCase();
+
+  if (normalised === "e") {
+    return "exempt";
+  }
+
+  if (normalised === "nhi") {
+    return "nhi";
+  }
+
+  return null;
 }
 
 function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): AssessmentEditor {
@@ -911,6 +1020,12 @@ function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): Asse
   }
 
   for (const category of row.categories) {
+    const categoryWork = category.works.find((item) => item.workId === editor.work.id);
+
+    if (categoryWork) {
+      return { ...editor, workGrade: categoryWork };
+    }
+
     for (const subcategory of category.subcategories) {
       const workGrade = subcategory.works.find((item) => item.workId === editor.work.id);
 
@@ -924,7 +1039,7 @@ function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): Asse
 }
 
 function canCollapseCategory(category: GradeCategory): boolean {
-  return category.subcategories.length > 1;
+  return category.subcategories.length + category.works.length > 1;
 }
 
 function canCollapseSubcategory(subcategory: GradeSubcategory): boolean {
@@ -961,7 +1076,9 @@ function categoryColumnCount(
       }
 
       return sum + subcategory.works.length * 2 + 1;
-    }, 0) + 1
+    }, 0) +
+    category.works.length * 2 +
+    1
   );
 }
 

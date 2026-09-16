@@ -93,6 +93,11 @@
   background: color-mix(in srgb, var(--colour-warning) 14%, var(--paper-light));
 }
 
+.individual-report-work--nhi th,
+.individual-report-work--nhi td {
+  background: color-mix(in srgb, var(--colour-error) 12%, var(--paper-light));
+}
+
 .individual-report-total th,
 .individual-report-total td {
   background: color-mix(in srgb, var(--colour-info) 22%, var(--paper-light));
@@ -129,6 +134,8 @@
   .individual-report-subcategory td,
   .individual-report-work--exempt th,
   .individual-report-work--exempt td,
+  .individual-report-work--nhi th,
+  .individual-report-work--nhi td,
   .individual-report-total th,
   .individual-report-total td {
     -webkit-print-color-adjust: exact;

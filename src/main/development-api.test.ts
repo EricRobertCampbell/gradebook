@@ -111,9 +111,10 @@ const unusedHandlers: DevelopmentApiHandlers = {
     name: "Copy of Quiz",
     weight: 1,
   }),
-  createWork: async ({ subcategoryId, name, notes, maximumScore, weight }) => ({
+  createWork: async ({ categoryId, subcategoryId, name, notes, maximumScore, weight }) => ({
     id: 1,
-    subcategoryId,
+    categoryId: categoryId ?? null,
+    subcategoryId: subcategoryId ?? null,
     name,
     notes,
     maximumScore,
@@ -121,6 +122,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
   }),
   updateWork: async ({ id, name, notes, maximumScore, weight }) => ({
     id,
+    categoryId: null,
     subcategoryId: 1,
     name,
     notes,
@@ -130,6 +132,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
   deleteWork: async () => ({ deleted: true }),
   copyWork: async ({ id }) => ({
     id: id + 100,
+    categoryId: null,
     subcategoryId: 1,
     name: "Copy of Homework",
     notes: "",

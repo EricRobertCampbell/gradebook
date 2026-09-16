@@ -66,10 +66,11 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
   const [deleting, setDeleting] = useState(false);
 
   async function saveAssessmentRecord(): Promise<Assessment> {
-    const score =
-      assessmentFields.status === "exempt"
-        ? (parseOptionalNumber(assessmentFields.score) ?? 0)
-        : parseRequiredNumber(assessmentFields.score, "Enter a mark.");
+    const score = statusOmitsScore(assessmentFields.status)
+      ? assessmentFields.status === "nhi"
+        ? 0
+        : (parseOptionalNumber(assessmentFields.score) ?? 0)
+      : parseRequiredNumber(assessmentFields.score, "Enter a mark.");
 
     return upsertAssessment({
       workId: editor.work.id,
@@ -173,8 +174,8 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
                 onChange={(event) =>
                   setAssessmentFields({ ...assessmentFields, score: event.target.value })
                 }
-                disabled={busy || assessmentFields.status === "exempt"}
-                required={assessmentFields.status !== "exempt"}
+                disabled={busy || statusOmitsScore(assessmentFields.status)}
+                required={!statusOmitsScore(assessmentFields.status)}
               />
               <span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>
             </span>
@@ -218,6 +219,7 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
             >
               <option value="counted">Counted</option>
               <option value="exempt">Exempt</option>
+              <option value="nhi">Not handed in</option>
             </select>
           </label>
           <label className="field">
@@ -374,7 +376,11 @@ function emptyAdjustmentFields(): AdjustmentFields {
 }
 
 function isAssessmentStatus(value: string): value is AssessmentStatus {
-  return value === "counted" || value === "exempt";
+  return value === "counted" || value === "exempt" || value === "nhi";
+}
+
+function statusOmitsScore(status: AssessmentStatus): boolean {
+  return status === "exempt" || status === "nhi";
 }
 
 function adjustmentSummary(adjustment: Adjustment): string {

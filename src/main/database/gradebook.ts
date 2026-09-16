@@ -1,16 +1,22 @@
 import { inArray } from "drizzle-orm";
-import { assessmentPercent, weightedAverage } from "../../shared/grades";
+import {
+  assessmentCountsTowardAverage,
+  assessmentPercent,
+  weightedAverage,
+} from "../../shared/grades";
 import {
   classLookupInputSchema,
   type Adjustment,
   type Assessment,
   type ClassGradebook,
   type ClassLookupInput,
+  type GradeWork,
   type StudentCategoryGrade,
   type StudentGradeRow,
   type StudentSubcategoryGrade,
   type StudentWorkGrade,
 } from "../../shared/ipc";
+import { parseStoredAssessment } from "./assessments";
 import { listStudentsForClass } from "./enrolments";
 import { flattenWorks, getGradingStructure } from "./grading-structure";
 import { adjustments, assessments } from "./schema";
@@ -64,47 +70,33 @@ function buildStudentRow(
 ): StudentGradeRow {
   const categoryGrades = categories.map((category) => {
     const subcategoryGrades = category.subcategories.map((subcategory) => {
-      const workGrades = subcategory.works.map((work) => {
-        const assessment = assessmentsByKey.get(assessmentKey(student.id, work.id)) ?? null;
-        const workAdjustments = assessment
-          ? (adjustmentsByAssessment.get(assessment.id) ?? [])
-          : [];
-        const percent = assessment
-          ? assessmentPercent(assessment.score, work.maximumScore, workAdjustments)
-          : null;
-
-        return {
-          workId: work.id,
-          assessment,
-          adjustments: workAdjustments,
-          percent,
-        } satisfies StudentWorkGrade;
-      });
+      const workGrades = subcategory.works.map((work) =>
+        buildWorkGrade(student.id, work, assessmentsByKey, adjustmentsByAssessment),
+      );
 
       return {
         subcategoryId: subcategory.id,
         percent: weightedAverage(
-          workGrades.flatMap((workGrade) => {
-            if (!workGrade.assessment || workGrade.assessment.status !== "counted") {
-              return [];
-            }
-
-            return [{ percent: workGrade.percent, weight: workGrade.assessment.weight }];
-          }),
+          workGrades.flatMap((workGrade) => countableWorkAverage(workGrade)),
         ),
         works: workGrades,
       } satisfies StudentSubcategoryGrade;
     });
+    const categoryWorkGrades = category.works.map((work) =>
+      buildWorkGrade(student.id, work, assessmentsByKey, adjustmentsByAssessment),
+    );
 
     return {
       categoryId: category.id,
-      percent: weightedAverage(
-        subcategoryGrades.map((subcategoryGrade, index) => ({
+      percent: weightedAverage([
+        ...subcategoryGrades.map((subcategoryGrade, index) => ({
           percent: subcategoryGrade.percent,
           weight: category.subcategories[index]?.weight ?? 0,
         })),
-      ),
+        ...categoryWorkGrades.flatMap((workGrade) => countableWorkAverage(workGrade)),
+      ]),
       subcategories: subcategoryGrades,
+      works: categoryWorkGrades,
     } satisfies StudentCategoryGrade;
   });
 
@@ -118,6 +110,38 @@ function buildStudentRow(
     ),
     categories: categoryGrades,
   };
+}
+
+function buildWorkGrade(
+  studentId: number,
+  work: GradeWork,
+  assessmentsByKey: Map<string, Assessment>,
+  adjustmentsByAssessment: Map<number, Array<Adjustment>>,
+): StudentWorkGrade {
+  const assessment = assessmentsByKey.get(assessmentKey(studentId, work.id)) ?? null;
+  const workAdjustments = assessment ? (adjustmentsByAssessment.get(assessment.id) ?? []) : [];
+  const percent = !assessment
+    ? null
+    : assessment.status === "nhi"
+      ? 0
+      : assessmentPercent(assessment.score, work.maximumScore, workAdjustments);
+
+  return {
+    workId: work.id,
+    assessment,
+    adjustments: workAdjustments,
+    percent,
+  };
+}
+
+function countableWorkAverage(
+  workGrade: StudentWorkGrade,
+): Array<{ percent: number | null; weight: number }> {
+  if (!workGrade.assessment || !assessmentCountsTowardAverage(workGrade.assessment.status)) {
+    return [];
+  }
+
+  return [{ percent: workGrade.percent, weight: workGrade.assessment.weight }];
 }
 
 function groupAdjustments(rows: Array<Adjustment>): Map<number, Array<Adjustment>> {
@@ -134,14 +158,6 @@ function groupAdjustments(rows: Array<Adjustment>): Map<number, Array<Adjustment
 
 function assessmentKey(studentId: number, workId: number): string {
   return `${studentId}:${workId}`;
-}
-
-function parseStoredAssessment(row: typeof assessments.$inferSelect): Assessment {
-  if (row.status !== "counted" && row.status !== "exempt") {
-    throw new Error("That assessment has an invalid status.");
-  }
-
-  return { ...row, status: row.status };
 }
 
 function parseLookupInput(input: ClassLookupInput): ClassLookupInput {
