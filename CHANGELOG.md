@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/EricRobertCampbell/gradebook/compare/v0.1.0...v0.2.0) (2026-09-18)
+
+
+### Features
+
+* analytics data ([1041571](https://github.com/EricRobertCampbell/gradebook/commit/1041571fe4728a533ef6e912f1fad0518beaf1cd)), closes [#15](https://github.com/EricRobertCampbell/gradebook/issues/15)
+
 ## [0.1.0](https://github.com/EricRobertCampbell/gradebook/compare/v0.0.1...v0.1.0) (2026-09-16)
 
 
