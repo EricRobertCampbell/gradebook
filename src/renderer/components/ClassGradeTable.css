@@ -176,6 +176,7 @@
   border: 1px solid color-mix(in srgb, var(--paper-light) 42%, transparent);
   background: transparent;
   color: var(--paper-light);
+  text-decoration: none;
 }
 
 .grade-header-edit:hover {

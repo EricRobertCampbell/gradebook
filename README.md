@@ -36,29 +36,29 @@ Whenever convenient:
 
 ## Stack
 
-| Area | Choice |
-| --- | --- |
-| Desktop | Electron and Electron Forge |
-| UI | React and TypeScript (strict) |
-| Bundling | Vite |
-| Database | SQLite via `better-sqlite3`, Drizzle ORM, and Drizzle Kit |
-| Validation | Zod on IPC inputs and outputs |
-| Tests | Vitest, using in-memory or temporary databases only |
-| Quality | ESLint (including a ban on TypeScript `as` assertions, except `as const`), Prettier, and TypeScript `noEmit` checks |
-| Commits | Conventional Commits, enforced by commitlint |
-| Releases | Release Please on `main` |
+| Area       | Choice                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| Desktop    | Electron and Electron Forge                                                                                         |
+| UI         | React and TypeScript (strict)                                                                                       |
+| Bundling   | Vite                                                                                                                |
+| Database   | SQLite via `better-sqlite3`, Drizzle ORM, and Drizzle Kit                                                           |
+| Validation | Zod on IPC inputs and outputs                                                                                       |
+| Tests      | Vitest, using in-memory or temporary databases only                                                                 |
+| Quality    | ESLint (including a ban on TypeScript `as` assertions, except `as const`), Prettier, and TypeScript `noEmit` checks |
+| Commits    | Conventional Commits, enforced by commitlint                                                                        |
+| Releases   | Release Please on `main`                                                                                            |
 
 ## Architecture
 
 The renderer must not touch Node, Electron, or SQLite. The window is launched with `nodeIntegration: false` and `contextIsolation: true`. The only bridge is a narrow `contextBridge` API.
 
-| Path | Role |
-| --- | --- |
-| `src/renderer` | React UI. Calls `window.gradebook` only. |
-| `src/preload` | Exposes that API; no database access. |
-| `src/main` | App lifecycle, SQLite, Drizzle, and IPC handlers. |
-| `src/shared` | Channel names, Zod schemas, and TypeScript contracts. |
-| `drizzle/` | Generated SQL migrations, shipped with the packaged app. |
+| Path           | Role                                                     |
+| -------------- | -------------------------------------------------------- |
+| `src/renderer` | React UI. Calls `window.gradebook` only.                 |
+| `src/preload`  | Exposes that API; no database access.                    |
+| `src/main`     | App lifecycle, SQLite, Drizzle, and IPC handlers.        |
+| `src/shared`   | Channel names, Zod schemas, and TypeScript contracts.    |
+| `drizzle/`     | Generated SQL migrations, shipped with the packaged app. |
 
 `window.gradebook` currently exposes `database.getStatus()`, `database.export()`, `database.import()`, and school year, class, student, parent, enrolment, and grading methods. There is no generic SQL API. IPC payloads are treated as untrusted and validated against the shared contract in both the main process and the preload script. The names `settings`, `students`, and `database` are reserved so they cannot collide with those routes.
 
@@ -68,11 +68,11 @@ Global tokens and typography live in `src/renderer/styles.css`. Component and pa
 
 Development, test, and packaged builds never share a SQLite file.
 
-| Environment | Location |
-| --- | --- |
-| Development (running from source) | `<project>/.data/gradebook-dev.sqlite` |
-| Tests | In-memory SQLite or a file under the system temp directory |
-| Packaged production | `<userData>/gradebook.sqlite` |
+| Environment                       | Location                                                   |
+| --------------------------------- | ---------------------------------------------------------- |
+| Development (running from source) | `<project>/.data/gradebook-dev.sqlite`                     |
+| Tests                             | In-memory SQLite or a file under the system temp directory |
+| Packaged production               | `<userData>/gradebook.sqlite`                              |
 
 Production data uses Electron’s `app.getPath("userData")`, not the source tree or the install directory. Development also uses the app name `gradebook-dev` so its user-data folder cannot collide with the packaged `Gradebook` app. `.data/` is gitignored.
 
@@ -120,7 +120,7 @@ Edit `src/main/database/schema.ts` and run `npm run db:generate` when the schema
 
 ## Commits and releases
 
-Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/). The Git `commit-msg` hook runs commitlint, for example:
+The Git `pre-commit` hook formats staged files with Prettier. Commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/). The Git `commit-msg` hook runs commitlint, for example:
 
 ```text
 feat: add course list
@@ -128,6 +128,6 @@ fix: restore database status query
 docs: describe release workflow
 ```
 
-`npm install` enables the hook through Husky.
+`npm install` enables the hooks through Husky.
 
 Pushes to `main` run `.github/workflows/release.yml`. [Release Please](https://github.com/googleapis/release-please) reads the conventional commits, opens a pull request that bumps `package.json` and updates `CHANGELOG.md`, and creates a GitHub release when that pull request is merged. On `0.x`, a breaking change bumps the minor version rather than jumping to `1.0.0`.

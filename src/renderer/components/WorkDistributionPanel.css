@@ -1,0 +1,13 @@
+.work-distribution h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.work-distribution-chart-card {
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.75rem 0.35rem;
+  border: 1px solid var(--paper-dark);
+  border-radius: 1rem;
+  background: var(--paper-light);
+}

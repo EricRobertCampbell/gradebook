@@ -18,6 +18,10 @@ export function classDataPath(classId: number): string {
   return `/${classId}/data`;
 }
 
+export function classWorkDataPath(classId: number, workId: number): string {
+  return `${classDataPath(classId)}/${workId}`;
+}
+
 export function studentClassReportPath(studentId: number, classId: number): string {
   return `/${studentId}/${classId}/individualreport`;
 }

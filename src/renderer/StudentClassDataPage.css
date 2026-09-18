@@ -1,3 +1,8 @@
-.student-class-data-placeholder {
-  margin: 0 0 1rem;
+.student-class-data-page {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.student-class-data-page > section {
+  margin: 0 0 2rem;
 }

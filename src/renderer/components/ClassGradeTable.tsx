@@ -23,7 +23,12 @@ import { personDisplayName } from "../../shared/person-name";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseRequiredNumber } from "../form-numbers";
 import { deleteAssessment, upsertAssessment } from "../grading";
-import { studentClassDataPath, studentClassReportPath, studentPath } from "../paths";
+import {
+  classWorkDataPath,
+  studentClassDataPath,
+  studentClassReportPath,
+  studentPath,
+} from "../paths";
 import "./ClassGradeTable.css";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import { ChevronIcon } from "./common/icons/ChevronIcon";
@@ -31,14 +36,8 @@ import { DocumentIcon } from "./common/icons/DocumentIcon";
 import { GraphIcon } from "./common/icons/GraphIcon";
 import { PencilIcon } from "./common/icons/PencilIcon";
 import { PlusIcon } from "./common/icons/PlusIcon";
-import {
-  GradeAssessmentModal,
-  type AssessmentEditor,
-} from "./GradeAssessmentModal";
-import {
-  GradeStructureEditor,
-  type GradeStructureEditorTarget,
-} from "./GradeStructureEditor";
+import { GradeAssessmentModal, type AssessmentEditor } from "./GradeAssessmentModal";
+import { GradeStructureEditor, type GradeStructureEditorTarget } from "./GradeStructureEditor";
 
 type ClassGradeTableProps = {
   gradebook: ClassGradebook;
@@ -113,7 +112,11 @@ export function ClassGradeTable({
                   <th
                     key={category.id}
                     className={collapsed ? "grade-table-header-bottom" : undefined}
-                    colSpan={categoryColumnCount(category, collapsedCategories, collapsedSubcategories)}
+                    colSpan={categoryColumnCount(
+                      category,
+                      collapsedCategories,
+                      collapsedSubcategories,
+                    )}
                     rowSpan={collapsed ? headerRows : undefined}
                   >
                     <HeaderLabel
@@ -166,6 +169,7 @@ export function ClassGradeTable({
                   categoryIsCollapsed(category, collapsedCategories) ? null : (
                     <CategorySubheaders
                       key={category.id}
+                      classId={classId}
                       category={category}
                       collapsedSubcategories={collapsedSubcategories}
                       subcategoryRowSpan={showWorkRow ? 2 : 1}
@@ -211,6 +215,8 @@ export function ClassGradeTable({
                             weight={work.weight}
                             onEdit={() => setStructureEditor({ kind: "work", work })}
                             editLabel={`Edit ${work.name}`}
+                            dataHref={classWorkDataPath(classId, work.id)}
+                            dataLabel={`Data for ${work.name}`}
                           />
                         </th>
                       )),
@@ -271,6 +277,7 @@ export function ClassGradeTable({
 }
 
 function CategorySubheaders({
+  classId,
   category,
   collapsedSubcategories,
   subcategoryRowSpan,
@@ -279,6 +286,7 @@ function CategorySubheaders({
   onAddWork,
   onEditWork,
 }: {
+  classId: number;
   category: GradeCategory;
   collapsedSubcategories: ReadonlySet<number>;
   subcategoryRowSpan: number;
@@ -308,9 +316,7 @@ function CategorySubheaders({
               onAdd={() => onAddWork(subcategory)}
               addLabel={`Add work to ${subcategory.name}`}
               collapsed={collapsed}
-              onToggleCollapse={
-                canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined
-              }
+              onToggleCollapse={canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined}
               collapseLabel={
                 canCollapse
                   ? collapsed
@@ -336,6 +342,8 @@ function CategorySubheaders({
             weight={work.weight}
             onEdit={() => onEditWork(work)}
             editLabel={`Edit ${work.name}`}
+            dataHref={classWorkDataPath(classId, work.id)}
+            dataLabel={`Data for ${work.name}`}
           />
         </th>
       ))}
@@ -353,6 +361,8 @@ function HeaderLabel({
   weight,
   onEdit,
   editLabel,
+  dataHref,
+  dataLabel,
   onAdd,
   addLabel,
   onAddWork,
@@ -367,6 +377,8 @@ function HeaderLabel({
   weight: number;
   onEdit: () => void;
   editLabel: string;
+  dataHref?: string;
+  dataLabel?: string;
   onAdd?: () => void;
   addLabel?: string;
   onAddWork?: () => void;
@@ -393,6 +405,11 @@ function HeaderLabel({
         <button type="button" className="grade-header-edit" aria-label={editLabel} onClick={onEdit}>
           <PencilIcon />
         </button>
+        {dataHref && dataLabel ? (
+          <Link to={dataHref} className="grade-header-edit" aria-label={dataLabel}>
+            <GraphIcon />
+          </Link>
+        ) : null}
         {onAdd && addLabel ? (
           <button type="button" className="grade-header-edit" aria-label={addLabel} onClick={onAdd}>
             <PlusIcon />
@@ -498,7 +515,9 @@ function AverageCategoryCells({
           />
         );
       })}
-      <td className="grade-table-summary">{formatGradePercent(categoryAverage?.percent ?? null)}</td>
+      <td className="grade-table-summary">
+        {formatGradePercent(categoryAverage?.percent ?? null)}
+      </td>
     </>
   );
 }
@@ -523,18 +542,14 @@ function AverageSubcategoryCells({
           />
         );
       })}
-      <td className="grade-table-summary">{formatGradePercent(subcategoryAverage?.percent ?? null)}</td>
+      <td className="grade-table-summary">
+        {formatGradePercent(subcategoryAverage?.percent ?? null)}
+      </td>
     </>
   );
 }
 
-function AverageWorkCells({
-  workName,
-  percent,
-}: {
-  workName: string;
-  percent: number | null;
-}) {
+function AverageWorkCells({ workName, percent }: { workName: string; percent: number | null }) {
   return (
     <>
       <td className="grade-cell" />
@@ -973,14 +988,14 @@ function classAverages(gradebook: ClassGradebook) {
         ),
         works: subcategory.works.map((_work, workIndex) => {
           const workGrades = rows.map(
-            (row) => row.categories[categoryIndex]?.subcategories[subcategoryIndex]?.works[workIndex],
+            (row) =>
+              row.categories[categoryIndex]?.subcategories[subcategoryIndex]?.works[workIndex],
           );
 
           return {
             percent: mean(
               workGrades.map((workGrade) =>
-                workGrade?.assessment &&
-                assessmentCountsTowardAverage(workGrade.assessment.status)
+                workGrade?.assessment && assessmentCountsTowardAverage(workGrade.assessment.status)
                   ? workGrade.percent
                   : null,
               ),

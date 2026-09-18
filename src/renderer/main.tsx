@@ -4,6 +4,7 @@ import { createHashRouter, RouterProvider } from "react-router-dom";
 import { App } from "./App";
 import { ClassDataPage } from "./ClassDataPage";
 import { ClassPage } from "./ClassPage";
+import { WorkDataPage } from "./WorkDataPage";
 import { ClassSettingsPage } from "./ClassSettingsPage";
 import { HomePage } from "./HomePage";
 import { SchoolYearPage } from "./SchoolYearPage";
@@ -27,6 +28,7 @@ const router = createHashRouter([
       { path: "students/:studentId/settings", element: <StudentSettingsPage /> },
       { path: "students/:studentId", element: <StudentPage /> },
       { path: ":schoolYearId/settings", element: <SchoolYearSettingsPage /> },
+      { path: ":classId/data/:workId", element: <WorkDataPage /> },
       { path: ":classId/data", element: <ClassDataPage /> },
       { path: ":schoolYearId", element: <SchoolYearPage /> },
       { path: ":studentId/:classId/data", element: <StudentClassDataPage /> },

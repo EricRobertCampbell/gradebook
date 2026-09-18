@@ -1,3 +1,13 @@
-.class-data-placeholder {
+.class-data-page {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.class-data-distribution h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.class-data-distribution .field {
   margin: 0 0 1rem;
 }

@@ -8,9 +8,8 @@ export function App() {
   const location = useLocation();
   const isDevelopment = import.meta.env.DEV;
   const usesBrowserFallback = isDevelopment && !hasPreloadDatabaseApi();
-  const onDatabase =
-    location.pathname === "/database" || location.pathname === "/settings";
-  const onClassGrades = isClassGradesPath(location.pathname);
+  const onDatabase = location.pathname === "/database" || location.pathname === "/settings";
+  const onWidePanel = isWidePanelPath(location.pathname);
 
   return (
     <div className="page">
@@ -36,13 +35,17 @@ export function App() {
         </Link>
       </header>
 
-      <main className={onClassGrades ? "panel panel--wide" : "panel"}>
+      <main className={onWidePanel ? "panel panel--wide" : "panel"}>
         <Outlet />
       </main>
     </div>
   );
 }
 
-function isClassGradesPath(pathname: string): boolean {
-  return /^\/[1-9]\d*\/[1-9]\d*$/.test(pathname);
+function isWidePanelPath(pathname: string): boolean {
+  return (
+    /^\/[1-9]\d*\/[1-9]\d*$/.test(pathname) ||
+    /^\/[1-9]\d*\/data(?:\/[1-9]\d*)?$/.test(pathname) ||
+    /^\/[1-9]\d*\/[1-9]\d*\/data$/.test(pathname)
+  );
 }
