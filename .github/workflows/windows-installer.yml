@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   windows-installer:
     # windows-latest is now Server 2025 with Visual Studio 2026. The
@@ -43,3 +46,28 @@ jobs:
           path: out/make/squirrel.windows/**/*
           if-no-files-found: error
           retention-days: 14
+
+      - name: Attach installer to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          installer="$(find out/make/squirrel.windows -name '*Setup.exe' | head -n 1)"
+
+          if [ -z "${installer}" ]; then
+            echo "No Squirrel Setup.exe was found."
+            exit 1
+          fi
+
+          for _ in $(seq 1 8); do
+            if gh release view "${tag}" >/dev/null 2>&1; then
+              gh release upload "${tag}" "${installer}" --clobber
+              exit 0
+            fi
+            sleep 15
+          done
+
+          gh release create "${tag}" "${installer}" --title "Gradebook ${version}" --generate-notes
