@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type {
-  GradeCategory,
-  GradeSubcategory,
-  GradeWork,
-} from "../../shared/ipc";
+import type { GradeCategory, GradeSubcategory, GradeWork } from "../../shared/ipc";
 import { parseRequiredNumber } from "../form-numbers";
 import {
   copyCategory,
@@ -24,6 +20,8 @@ import { describeError, type DisplayError } from "../errors";
 import "./ClassAssessmentSetup.css";
 import "./common/ActionButton.css";
 import "./common/Field.css";
+import { TextArea } from "./common/TextArea";
+import { TextField } from "./common/TextField";
 import { ConfirmDeleteModal } from "./common/ConfirmDeleteModal";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import { CopyIcon } from "./common/icons/CopyIcon";
@@ -243,9 +241,7 @@ export function ClassAssessmentSetup({
                   <div className="record-item">
                     <div className="grading-tree-label">
                       <strong>{subcategory.name}</strong>
-                      <span className="record-button-meta">
-                        Weight {subcategory.weight}
-                      </span>
+                      <span className="record-button-meta">Weight {subcategory.weight}</span>
                     </div>
                     <button
                       type="button"
@@ -290,7 +286,9 @@ export function ClassAssessmentSetup({
                   <button
                     type="button"
                     className="action-button action-button--secondary grading-tree-add"
-                    onClick={() => openEditor({ kind: "create-work", subcategoryId: subcategory.id })}
+                    onClick={() =>
+                      openEditor({ kind: "create-work", subcategoryId: subcategory.id })
+                    }
                   >
                     Add work
                   </button>
@@ -317,60 +315,60 @@ export function ClassAssessmentSetup({
         ))}
       </ul>
 
-      <button type="button" className="action-button record-add-button" onClick={() => openEditor({ kind: "create-category" })}>
+      <button
+        type="button"
+        className="action-button record-add-button"
+        onClick={() => openEditor({ kind: "create-category" })}
+      >
         Add category
       </button>
 
       <Modal title={editorTitle(editor)} open={editor !== null} onClose={closeEditor}>
         <ErrorDisplay error={editorError} />
         <form className="fields" onSubmit={(event) => void onSaveEditor(event)}>
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input
-              type="text"
-              value={fields.name}
-              onChange={(event) => setFields({ ...fields, name: event.target.value })}
-              autoComplete="off"
-              disabled={saving}
-              required
-            />
-          </label>
+          <TextField
+            label="Name"
+            required
+            type="text"
+            value={fields.name}
+            onChange={(event) => setFields({ ...fields, name: event.target.value })}
+            autoComplete="off"
+            disabled={saving}
+          />
           {showsNotes(editor) ? (
-            <label className="field">
-              <span className="field-label">Notes</span>
-              <textarea
-                value={fields.notes}
-                onChange={(event) => setFields({ ...fields, notes: event.target.value })}
-                disabled={saving}
-              />
-            </label>
+            <TextArea
+              label="Notes"
+              value={fields.notes}
+              onChange={(event) => setFields({ ...fields, notes: event.target.value })}
+              disabled={saving}
+            />
           ) : null}
           {showsMaximumScore(editor) ? (
-            <label className="field">
-              <span className="field-label">Maximum score</span>
-              <input
-                type="number"
-                step="any"
-                value={fields.maximumScore}
-                onChange={(event) => setFields({ ...fields, maximumScore: event.target.value })}
-                disabled={saving}
-                required
-              />
-            </label>
-          ) : null}
-          <label className="field">
-            <span className="field-label">Weight</span>
-            <input
+            <TextField
+              label="Maximum score"
+              required
               type="number"
               step="any"
-              value={fields.weight}
-              onChange={(event) => setFields({ ...fields, weight: event.target.value })}
+              value={fields.maximumScore}
+              onChange={(event) => setFields({ ...fields, maximumScore: event.target.value })}
               disabled={saving}
-              required
             />
-          </label>
+          ) : null}
+          <TextField
+            label="Weight"
+            required
+            type="number"
+            step="any"
+            value={fields.weight}
+            onChange={(event) => setFields({ ...fields, weight: event.target.value })}
+            disabled={saving}
+          />
           <div className="modal-actions">
-            <button type="button" className="action-button action-button--secondary" onClick={closeEditor}>
+            <button
+              type="button"
+              className="action-button action-button--secondary"
+              onClick={closeEditor}
+            >
               Cancel
             </button>
             <button type="submit" className="action-button" disabled={saving}>

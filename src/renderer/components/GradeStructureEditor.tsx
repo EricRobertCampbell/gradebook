@@ -13,6 +13,8 @@ import {
 import "./common/ActionButton.css";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import "./common/Field.css";
+import { TextArea } from "./common/TextArea";
+import { TextField } from "./common/TextField";
 import { Modal } from "./common/Modal";
 
 export type GradeStructureEditorTarget =
@@ -63,53 +65,49 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
     <Modal title={editorTitle(target)} open onClose={onClose}>
       <ErrorDisplay error={error} />
       <form className="fields" onSubmit={(event) => void onSave(event)}>
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input
-            type="text"
-            value={fields.name}
-            onChange={(event) => setFields({ ...fields, name: event.target.value })}
-            autoComplete="off"
-            disabled={saving}
-            required
-          />
-        </label>
+        <TextField
+          label="Name"
+          required
+          type="text"
+          value={fields.name}
+          onChange={(event) => setFields({ ...fields, name: event.target.value })}
+          autoComplete="off"
+          disabled={saving}
+        />
         {showsNotes(target) ? (
-          <label className="field">
-            <span className="field-label">Notes</span>
-            <textarea
-              value={fields.notes}
-              onChange={(event) => setFields({ ...fields, notes: event.target.value })}
-              disabled={saving}
-            />
-          </label>
+          <TextArea
+            label="Notes"
+            value={fields.notes}
+            onChange={(event) => setFields({ ...fields, notes: event.target.value })}
+            disabled={saving}
+          />
         ) : null}
         {showsMaximumScore(target) ? (
-          <label className="field">
-            <span className="field-label">Maximum score</span>
-            <input
-              type="number"
-              step="any"
-              value={fields.maximumScore}
-              onChange={(event) => setFields({ ...fields, maximumScore: event.target.value })}
-              disabled={saving}
-              required
-            />
-          </label>
-        ) : null}
-        <label className="field">
-          <span className="field-label">Weight (%)</span>
-          <input
+          <TextField
+            label="Maximum score"
+            required
             type="number"
             step="any"
-            value={fields.weight}
-            onChange={(event) => setFields({ ...fields, weight: event.target.value })}
+            value={fields.maximumScore}
+            onChange={(event) => setFields({ ...fields, maximumScore: event.target.value })}
             disabled={saving}
-            required
           />
-        </label>
+        ) : null}
+        <TextField
+          label="Weight (%)"
+          required
+          type="number"
+          step="any"
+          value={fields.weight}
+          onChange={(event) => setFields({ ...fields, weight: event.target.value })}
+          disabled={saving}
+        />
         <div className="modal-actions">
-          <button type="button" className="action-button action-button--secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="action-button action-button--secondary"
+            onClick={onClose}
+          >
             Cancel
           </button>
           <button type="submit" className="action-button" disabled={saving}>

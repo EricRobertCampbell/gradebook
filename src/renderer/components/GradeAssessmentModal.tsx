@@ -8,16 +8,14 @@ import type {
 } from "../../shared/ipc";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseOptionalNumber, parseRequiredNumber } from "../form-numbers";
-import {
-  createAdjustment,
-  deleteAdjustment,
-  updateAdjustment,
-  upsertAssessment,
-} from "../grading";
+import { createAdjustment, deleteAdjustment, updateAdjustment, upsertAssessment } from "../grading";
 import "./common/ActionButton.css";
 import { ConfirmDeleteModal } from "./common/ConfirmDeleteModal";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import "./common/Field.css";
+import { SelectField } from "./common/SelectField";
+import { TextArea } from "./common/TextArea";
+import { TextField } from "./common/TextField";
 import { PencilIcon } from "./common/icons/PencilIcon";
 import { TrashIcon } from "./common/icons/TrashIcon";
 import "./common/icons/icon-button.css";
@@ -58,7 +56,8 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
   const [assessmentFields, setAssessmentFields] = useState<AssessmentFields>(() =>
     fieldsFromAssessment(editor.work, editor.workGrade.assessment),
   );
-  const [adjustmentFields, setAdjustmentFields] = useState<AdjustmentFields>(emptyAdjustmentFields());
+  const [adjustmentFields, setAdjustmentFields] =
+    useState<AdjustmentFields>(emptyAdjustmentFields());
   const [editingId, setEditingId] = useState<number | null>(null);
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [savingAdjustment, setSavingAdjustment] = useState(false);
@@ -164,74 +163,62 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
         <p className="grade-assessment-student">{editor.studentName}</p>
         <ErrorDisplay error={error} />
         <form className="fields" onSubmit={(event) => void onSaveAssessment(event)}>
-          <label className="field">
-            <span className="field-label">Score</span>
-            <span className="grade-assessment-score">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={assessmentFields.score}
-                onChange={(event) =>
-                  setAssessmentFields({ ...assessmentFields, score: event.target.value })
-                }
-                disabled={busy || statusOmitsScore(assessmentFields.status)}
-                required={!statusOmitsScore(assessmentFields.status)}
-              />
-              <span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>
-            </span>
-          </label>
-          <label className="field">
-            <span className="field-label">Date</span>
-            <input
-              type="date"
-              value={assessmentFields.date}
-              onChange={(event) =>
-                setAssessmentFields({ ...assessmentFields, date: event.target.value })
+          <TextField
+            label="Score"
+            required={!statusOmitsScore(assessmentFields.status)}
+            type="text"
+            inputMode="decimal"
+            value={assessmentFields.score}
+            onChange={(event) =>
+              setAssessmentFields({ ...assessmentFields, score: event.target.value })
+            }
+            disabled={busy || statusOmitsScore(assessmentFields.status)}
+            suffix={<span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>}
+          />
+          <TextField
+            label="Date"
+            required
+            type="date"
+            value={assessmentFields.date}
+            onChange={(event) =>
+              setAssessmentFields({ ...assessmentFields, date: event.target.value })
+            }
+            disabled={busy}
+          />
+          <TextField
+            label="Weight (%)"
+            required
+            type="number"
+            step="any"
+            value={assessmentFields.weight}
+            onChange={(event) =>
+              setAssessmentFields({ ...assessmentFields, weight: event.target.value })
+            }
+            disabled={busy}
+          />
+          <SelectField
+            label="Status"
+            value={assessmentFields.status}
+            disabled={busy}
+            onChange={(event) => {
+              const status = event.target.value;
+              if (isAssessmentStatus(status)) {
+                setAssessmentFields({ ...assessmentFields, status });
               }
-              disabled={busy}
-              required
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Weight (%)</span>
-            <input
-              type="number"
-              step="any"
-              value={assessmentFields.weight}
-              onChange={(event) =>
-                setAssessmentFields({ ...assessmentFields, weight: event.target.value })
-              }
-              disabled={busy}
-              required
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Status</span>
-            <select
-              value={assessmentFields.status}
-              disabled={busy}
-              onChange={(event) => {
-                const status = event.target.value;
-                if (isAssessmentStatus(status)) {
-                  setAssessmentFields({ ...assessmentFields, status });
-                }
-              }}
-            >
-              <option value="counted">Counted</option>
-              <option value="exempt">Exempt</option>
-              <option value="nhi">Not handed in</option>
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Notes</span>
-            <textarea
-              value={assessmentFields.notes}
-              onChange={(event) =>
-                setAssessmentFields({ ...assessmentFields, notes: event.target.value })
-              }
-              disabled={busy}
-            />
-          </label>
+            }}
+          >
+            <option value="counted">Counted</option>
+            <option value="exempt">Exempt</option>
+            <option value="nhi">Not handed in</option>
+          </SelectField>
+          <TextArea
+            label="Notes"
+            value={assessmentFields.notes}
+            onChange={(event) =>
+              setAssessmentFields({ ...assessmentFields, notes: event.target.value })
+            }
+            disabled={busy}
+          />
           <div className="modal-actions">
             <button type="submit" className="action-button" disabled={busy}>
               {savingAssessment ? "Saving…" : "Save assessment"}
@@ -279,53 +266,45 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
           </ul>
         )}
         <form className="fields" onSubmit={(event) => void onSaveAdjustment(event)}>
-          <label className="field">
-            <span className="field-label">Description</span>
-            <input
-              type="text"
-              value={adjustmentFields.description}
-              onChange={(event) =>
-                setAdjustmentFields({ ...adjustmentFields, description: event.target.value })
-              }
-              autoComplete="off"
-              disabled={busy}
-              required
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Percent change</span>
-            <input
-              type="number"
-              step="any"
-              value={adjustmentFields.percentChange}
-              onChange={(event) =>
-                setAdjustmentFields({ ...adjustmentFields, percentChange: event.target.value })
-              }
-              disabled={busy}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Raw change</span>
-            <input
-              type="number"
-              step="any"
-              value={adjustmentFields.rawChange}
-              onChange={(event) =>
-                setAdjustmentFields({ ...adjustmentFields, rawChange: event.target.value })
-              }
-              disabled={busy}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Notes</span>
-            <textarea
-              value={adjustmentFields.notes}
-              onChange={(event) =>
-                setAdjustmentFields({ ...adjustmentFields, notes: event.target.value })
-              }
-              disabled={busy}
-            />
-          </label>
+          <TextField
+            label="Description"
+            required
+            type="text"
+            value={adjustmentFields.description}
+            onChange={(event) =>
+              setAdjustmentFields({ ...adjustmentFields, description: event.target.value })
+            }
+            autoComplete="off"
+            disabled={busy}
+          />
+          <TextField
+            label="Percent change"
+            type="number"
+            step="any"
+            value={adjustmentFields.percentChange}
+            onChange={(event) =>
+              setAdjustmentFields({ ...adjustmentFields, percentChange: event.target.value })
+            }
+            disabled={busy}
+          />
+          <TextField
+            label="Raw change"
+            type="number"
+            step="any"
+            value={adjustmentFields.rawChange}
+            onChange={(event) =>
+              setAdjustmentFields({ ...adjustmentFields, rawChange: event.target.value })
+            }
+            disabled={busy}
+          />
+          <TextArea
+            label="Notes"
+            value={adjustmentFields.notes}
+            onChange={(event) =>
+              setAdjustmentFields({ ...adjustmentFields, notes: event.target.value })
+            }
+            disabled={busy}
+          />
           <div className="modal-actions">
             {editingId !== null ? (
               <button
@@ -339,11 +318,19 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
                 Cancel edit
               </button>
             ) : null}
-            <button type="button" className="action-button action-button--secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="action-button action-button--secondary"
+              onClick={onClose}
+            >
               Close
             </button>
             <button type="submit" className="action-button" disabled={busy}>
-              {savingAdjustment ? "Saving…" : editingId !== null ? "Save adjustment" : "Add adjustment"}
+              {savingAdjustment
+                ? "Saving…"
+                : editingId !== null
+                  ? "Save adjustment"
+                  : "Add adjustment"}
             </button>
           </div>
         </form>

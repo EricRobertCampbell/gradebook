@@ -41,3 +41,15 @@
   outline: 2px solid var(--colour-primary);
   outline-offset: 2px;
 }
+
+.field-suffix {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field .field-suffix input {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}

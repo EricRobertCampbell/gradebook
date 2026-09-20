@@ -8,7 +8,7 @@ import {
 } from "../../shared/grade-distribution";
 import type { ClassGradebook, GradeCategory, GradeWork, Student } from "../../shared/ipc";
 import { parseRouteId } from "../paths";
-import "./common/Field.css";
+import { SelectField } from "./common/SelectField";
 import "./StudentCategoryDataSection.css";
 import { GradeDistributionPanel, WorkDistributionPanel } from "./WorkDistributionPanel";
 
@@ -52,25 +52,23 @@ export function StudentCategoryDataSection({
         <p className="muted">No work or sub-categories in this category yet.</p>
       ) : (
         <div className="student-category-scope">
-          <label className="field">
-            <span className="field-label">Work or sub-category</span>
-            <select
-              value={scopeKey(scope)}
-              onChange={(event) => {
-                const nextScope = parseScopeKey(event.target.value, scopes);
-                setScope(nextScope);
-                setSubcategoryWorkId(
-                  defaultSubcategoryWorkId(category, gradebook, nextScope, student.id),
-                );
-              }}
-            >
-              {scopes.map((option) => (
-                <option key={scopeKey(option)} value={scopeKey(option)}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Work or sub-category"
+            value={scopeKey(scope)}
+            onChange={(event) => {
+              const nextScope = parseScopeKey(event.target.value, scopes);
+              setScope(nextScope);
+              setSubcategoryWorkId(
+                defaultSubcategoryWorkId(category, gradebook, nextScope, student.id),
+              );
+            }}
+          >
+            {scopes.map((option) => (
+              <option key={scopeKey(option)} value={scopeKey(option)}>
+                {option.label}
+              </option>
+            ))}
+          </SelectField>
 
           {subcategory ? (
             <div className="student-subcategory-data">
@@ -81,25 +79,23 @@ export function StudentCategoryDataSection({
                 student={student}
               />
               <div className="student-subcategory-work">
-                <label className="field">
-                  <span className="field-label">Work</span>
-                  <select
-                    value={subcategoryWorkId ?? ""}
-                    disabled={subcategory.works.length === 0}
-                    onChange={(event) =>
-                      setSubcategoryWorkId(parseRouteId(event.target.value) ?? null)
-                    }
-                  >
-                    {subcategory.works.length === 0 ? (
-                      <option value="">No work in this sub-category</option>
-                    ) : null}
-                    {subcategory.works.map((work) => (
-                      <option key={work.id} value={work.id}>
-                        {work.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <SelectField
+                  label="Work"
+                  value={subcategoryWorkId ?? ""}
+                  disabled={subcategory.works.length === 0}
+                  onChange={(event) =>
+                    setSubcategoryWorkId(parseRouteId(event.target.value) ?? null)
+                  }
+                >
+                  {subcategory.works.length === 0 ? (
+                    <option value="">No work in this sub-category</option>
+                  ) : null}
+                  {subcategory.works.map((work) => (
+                    <option key={work.id} value={work.id}>
+                      {work.name}
+                    </option>
+                  ))}
+                </SelectField>
                 {selectedWork ? (
                   <WorkDistributionPanel
                     work={selectedWork}

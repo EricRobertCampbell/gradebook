@@ -6,7 +6,7 @@ import { personDisplayName } from "../shared/person-name";
 import { getClassById } from "./classes";
 import "./components/common/BackLink.css";
 import { ErrorDisplay } from "./components/common/ErrorDisplay";
-import "./components/common/Field.css";
+import { SelectField } from "./components/common/SelectField";
 import { WorkDistributionPanel } from "./components/WorkDistributionPanel";
 import { describeError, type DisplayError } from "./errors";
 import { getClassGradebook } from "./grading";
@@ -90,25 +90,23 @@ export function WorkDataPage() {
 
       {!loading && !error && work && gradebook ? (
         <>
-          <label className="field">
-            <span className="field-label">Student</span>
-            <select
-              value={studentId ?? ""}
-              disabled={gradebook.students.length === 0}
-              onChange={(event) => setStudentId(parseSelectedStudentId(event.target.value))}
-            >
-              {gradebook.students.length === 0 ? (
-                <option value="">No students in this class</option>
-              ) : (
-                <option value="">None</option>
-              )}
-              {gradebook.students.map((row) => (
-                <option key={row.student.id} value={row.student.id}>
-                  {personDisplayName(row.student)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Student"
+            value={studentId ?? ""}
+            disabled={gradebook.students.length === 0}
+            onChange={(event) => setStudentId(parseSelectedStudentId(event.target.value))}
+          >
+            {gradebook.students.length === 0 ? (
+              <option value="">No students in this class</option>
+            ) : (
+              <option value="">None</option>
+            )}
+            {gradebook.students.map((row) => (
+              <option key={row.student.id} value={row.student.id}>
+                {personDisplayName(row.student)}
+              </option>
+            ))}
+          </SelectField>
           <WorkDistributionPanel
             work={work}
             gradebook={gradebook}
