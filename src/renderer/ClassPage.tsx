@@ -23,8 +23,7 @@ export function ClassPage() {
   const [gradebook, setGradebook] = useState<ClassGradebook | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<DisplayError | null>(null);
-  const settingsPath =
-    schoolYearId && classId ? classSettingsPath(schoolYearId, classId) : "";
+  const settingsPath = schoolYearId && classId ? classSettingsPath(schoolYearId, classId) : "";
   const dataPath = classId ? classDataPath(classId) : "";
 
   const loadClass = useCallback(async () => {
@@ -113,7 +112,17 @@ export function ClassPage() {
 
       <h2 className="class-section-heading">Grades</h2>
       {!loading && gradebook && gradebook.students.length === 0 ? (
-        <p className="muted">No students in this class yet. Add them from class settings.</p>
+        <p className="muted">
+          No students in this class yet. Add them from{" "}
+          {settingsPath ? (
+            <Link to={settingsPath} className="class-empty-settings-link">
+              class settings
+            </Link>
+          ) : (
+            "class settings"
+          )}
+          .
+        </p>
       ) : null}
       {gradebook && schoolClass && schoolYear ? (
         <ClassGradeTable

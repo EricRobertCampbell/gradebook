@@ -18,3 +18,13 @@
   margin: 1.4rem 0 0.85rem;
   font-size: 1.25rem;
 }
+
+.class-empty-settings-link {
+  color: var(--colour-primary);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.class-empty-settings-link:hover {
+  color: var(--colour-primary-darker);
+}
