@@ -243,6 +243,7 @@ function createWindow(): void {
     minWidth: 640,
     minHeight: 480,
     title: "Local Gradebook",
+    icon: resolveAppIconPath(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -266,6 +267,16 @@ function createWindow(): void {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
+}
+
+function resolveAppIconPath(): string {
+  const fileName = process.platform === "win32" ? "icon.ico" : "icon.png";
+
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "images", fileName);
+  }
+
+  return path.join(resolveProjectRoot(), "images", fileName);
 }
 
 void app.whenReady().then(async () => {
