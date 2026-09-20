@@ -6,7 +6,7 @@ import { getClassById } from "./classes";
 import "./ClassDataPage.css";
 import "./components/common/BackLink.css";
 import { ErrorDisplay } from "./components/common/ErrorDisplay";
-import "./components/common/Field.css";
+import { SelectField } from "./components/common/SelectField";
 import { WorkDistributionPanel } from "./components/WorkDistributionPanel";
 import { describeError, type DisplayError } from "./errors";
 import { getClassGradebook } from "./grading";
@@ -85,21 +85,19 @@ export function ClassDataPage() {
         <section className="class-data-distribution">
           <h2>Work distribution</h2>
 
-          <label className="field">
-            <span className="field-label">Work</span>
-            <select
-              value={workId ?? ""}
-              disabled={works.length === 0}
-              onChange={(event) => setWorkId(parseSelectedWorkId(event.target.value))}
-            >
-              {works.length === 0 ? <option value="">No work in this class</option> : null}
-              {works.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Work"
+            value={workId ?? ""}
+            disabled={works.length === 0}
+            onChange={(event) => setWorkId(parseSelectedWorkId(event.target.value))}
+          >
+            {works.length === 0 ? <option value="">No work in this class</option> : null}
+            {works.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </SelectField>
 
           {works.length === 0 ? (
             <p className="muted">
