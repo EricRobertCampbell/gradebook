@@ -86,7 +86,7 @@
 .grade-table-student {
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: 2;
   min-width: 8.5rem;
   text-align: left;
 }
@@ -199,6 +199,18 @@
 .grade-table-summary,
 .grade-table-total {
   min-width: 3.8rem;
+}
+
+.grade-table-total {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  box-shadow: -0.45rem 0 0.55rem -0.35rem color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+.grade-table thead .grade-table-student,
+.grade-table thead .grade-table-total {
+  z-index: 3;
 }
 
 .grade-table tbody .grade-table-summary,
