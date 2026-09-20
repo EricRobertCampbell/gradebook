@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { EnrolledClass, Parent, ParentFields, Student } from "../shared/ipc";
-import { personDisplayName, personFullName } from "../shared/person-name";
+import { personDisplayName, personDistinctFullName, personFullName } from "../shared/person-name";
 import "./components/common/ActionButton.css";
 import "./components/common/BackLink.css";
 import { ConfirmDeleteModal } from "./components/common/ConfirmDeleteModal";
@@ -27,7 +27,12 @@ import {
   listParentsForStudent,
   updateParent,
 } from "./parents";
-import { classPath, studentClassDataPath, studentClassReportPath, studentSettingsPath } from "./paths";
+import {
+  classPath,
+  studentClassDataPath,
+  studentClassReportPath,
+  studentSettingsPath,
+} from "./paths";
 import { getStudent } from "./students";
 import "./StudentPage.css";
 
@@ -129,7 +134,10 @@ export function StudentPage() {
       await loadStudent();
     } catch (caught) {
       setFormError(
-        describeError(caught, editing ? "The parent could not be updated." : "The parent could not be created."),
+        describeError(
+          caught,
+          editing ? "The parent could not be updated." : "The parent could not be created.",
+        ),
       );
     } finally {
       setSaving(false);
@@ -201,10 +209,10 @@ export function StudentPage() {
 
       {student ? (
         <dl className="student-details">
-          {student.preferredName ? (
+          {personDistinctFullName(student) ? (
             <>
               <dt>Full name</dt>
-              <dd>{personFullName(student)}</dd>
+              <dd>{personDistinctFullName(student)}</dd>
             </>
           ) : null}
           {student.email ? (
@@ -231,9 +239,7 @@ export function StudentPage() {
               <button
                 type="button"
                 className="record-button"
-                onClick={() =>
-                  navigate(classPath(schoolClass.schoolYearId, schoolClass.id))
-                }
+                onClick={() => navigate(classPath(schoolClass.schoolYearId, schoolClass.id))}
               >
                 {schoolClass.displayName}
                 <span className="record-button-meta">
@@ -271,8 +277,8 @@ export function StudentPage() {
             <li key={parent.id} className="record-item">
               <div className="student-parent-card">
                 <strong>{personDisplayName(parent)}</strong>
-                {parent.preferredName ? (
-                  <span className="record-button-meta">{personFullName(parent)}</span>
+                {personDistinctFullName(parent) ? (
+                  <span className="record-button-meta">{personDistinctFullName(parent)}</span>
                 ) : null}
                 {parentEmails(parent) ? (
                   <span className="record-button-meta">{parentEmails(parent)}</span>
@@ -305,7 +311,11 @@ export function StudentPage() {
         Add parent
       </button>
 
-      <Modal title={editing ? "Update parent" : "Add parent"} open={formOpen} onClose={closeFormModal}>
+      <Modal
+        title={editing ? "Update parent" : "Add parent"}
+        open={formOpen}
+        onClose={closeFormModal}
+      >
         <form className="parent-form" onSubmit={(event) => void onSubmitParent(event)}>
           <ErrorDisplay error={formError} />
           <ParentDetailsFields values={fields} onChange={setFields} disabled={saving} />
@@ -318,7 +328,13 @@ export function StudentPage() {
               Cancel
             </button>
             <button type="submit" className="action-button" disabled={saving}>
-              {saving ? (editing ? "Saving…" : "Adding…") : editing ? "Save parent" : "Create parent"}
+              {saving
+                ? editing
+                  ? "Saving…"
+                  : "Adding…"
+                : editing
+                  ? "Save parent"
+                  : "Create parent"}
             </button>
           </div>
         </form>

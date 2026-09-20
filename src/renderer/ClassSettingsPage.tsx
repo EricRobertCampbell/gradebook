@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Class, ClassFields, SchoolYear, Student } from "../shared/ipc";
-import { personDisplayName, personFullName } from "../shared/person-name";
+import { personDisplayName, personDistinctFullName, personFullName } from "../shared/person-name";
 import "./ClassSettingsPage.css";
 import { deleteClass, getClassById, listSubjects, updateClass } from "./classes";
 import { ClassAssessmentSetup } from "./components/ClassAssessmentSetup";
@@ -274,8 +274,8 @@ export function ClassSettingsPage() {
                 onClick={() => navigate(studentPath(student.id))}
               >
                 {personDisplayName(student)}
-                {student.preferredName ? (
-                  <span className="record-button-meta">{personFullName(student)}</span>
+                {personDistinctFullName(student) ? (
+                  <span className="record-button-meta">{personDistinctFullName(student)}</span>
                 ) : null}
               </button>
               <button
@@ -322,8 +322,8 @@ export function ClassSettingsPage() {
                   onClick={() => void onAddStudent(student)}
                 >
                   {personDisplayName(student)}
-                  {student.preferredName ? (
-                    <span className="record-button-meta">{personFullName(student)}</span>
+                  {personDistinctFullName(student) ? (
+                    <span className="record-button-meta">{personDistinctFullName(student)}</span>
                   ) : null}
                 </button>
               </li>

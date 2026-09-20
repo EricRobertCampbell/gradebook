@@ -9,9 +9,14 @@ export function personDisplayName(person: NamedPerson): string {
     return person.preferredName;
   }
 
-  return `${person.firstName} ${person.lastName}`;
+  return person.firstName;
 }
 
 export function personFullName(person: NamedPerson): string {
   return `${person.firstName} ${person.lastName}`;
+}
+
+export function personDistinctFullName(person: NamedPerson): string | null {
+  const fullName = personFullName(person);
+  return fullName === personDisplayName(person) ? null : fullName;
 }
