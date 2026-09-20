@@ -5,6 +5,7 @@ import {
   classGradebookSchema,
   classGradingStructureSchema,
   deleteResultSchema,
+  reorderResultSchema,
   subcategorySchema,
   workSchema,
   type Adjustment,
@@ -27,6 +28,10 @@ import {
   type Work,
   type WorkCreateInput,
   type WorkUpdateInput,
+  type CategoryReorderInput,
+  type CategoryReorderChildrenInput,
+  type SubcategoryReorderWorksInput,
+  type ReorderResult,
 } from "../shared/ipc";
 import {
   DEVELOPMENT_API_ADJUSTMENTS_PATH,
@@ -53,6 +58,9 @@ export type GradingDevelopmentApiHandlers = {
   updateWork: (input: WorkUpdateInput) => Promise<Work>;
   deleteWork: (input: RecordIdInput) => Promise<DeleteResult>;
   copyWork: (input: RecordIdInput) => Promise<Work>;
+  reorderCategories: (input: CategoryReorderInput) => Promise<ReorderResult>;
+  reorderCategoryChildren: (input: CategoryReorderChildrenInput) => Promise<ReorderResult>;
+  reorderSubcategoryWorks: (input: SubcategoryReorderWorksInput) => Promise<ReorderResult>;
   upsertAssessment: (input: AssessmentUpsertInput) => Promise<Assessment>;
   deleteAssessment: (input: AssessmentLookupInput) => Promise<DeleteResult>;
   createAdjustment: (input: AdjustmentCreateInput) => Promise<Adjustment>;
@@ -105,6 +113,26 @@ async function handleClassGradingRoute(
       statusCode: 200,
       body: classGradebookSchema.parse(await options.getClassGradebook(classLookup)),
     };
+  }
+
+  if (classRest.length === 2 && classRest[0] === "categories" && classRest[1] === "order") {
+    if (method === "PUT") {
+      const record = unknownRecord(options.body, "The category order is required.");
+      const orderedIds = record.orderedIds;
+      if (!Array.isArray(orderedIds) || orderedIds.some((id) => typeof id !== "number")) {
+        throw new Error("The category order is required.");
+      }
+
+      return {
+        statusCode: 200,
+        body: reorderResultSchema.parse(
+          await options.reorderCategories({
+            ...classLookup,
+            orderedIds,
+          }),
+        ),
+      };
+    }
   }
 
   if (classRest.length === 1 && classRest[0] === "categories") {
@@ -160,6 +188,40 @@ async function handleRecordGradingRoute(
         body: categorySchema.parse(await options.copyCategory({ id: categoryApi.id })),
       };
     }
+  }
+
+  if (
+    categoryApi &&
+    categoryApi.rest.length === 2 &&
+    categoryApi.rest[0] === "children" &&
+    categoryApi.rest[1] === "order" &&
+    options.method === "PUT"
+  ) {
+    const record = unknownRecord(options.body, "The item order is required.");
+    const items = record.items;
+    if (!Array.isArray(items)) {
+      throw new Error("The item order is required.");
+    }
+
+    return {
+      statusCode: 200,
+      body: reorderResultSchema.parse(
+        await options.reorderCategoryChildren({
+          categoryId: categoryApi.id,
+          items: items.map((item) => {
+            const entry = unknownRecord(item, "The item order is required.");
+            if (
+              (entry.kind !== "subcategory" && entry.kind !== "work") ||
+              typeof entry.id !== "number"
+            ) {
+              throw new Error("The item order is required.");
+            }
+
+            return { kind: entry.kind, id: entry.id };
+          }),
+        }),
+      ),
+    };
   }
 
   if (categoryApi && categoryApi.rest.length === 1 && categoryApi.rest[0] === "subcategories") {
@@ -219,6 +281,30 @@ async function handleRecordGradingRoute(
         body: subcategorySchema.parse(await options.copySubcategory({ id: subcategoryApi.id })),
       };
     }
+  }
+
+  if (
+    subcategoryApi &&
+    subcategoryApi.rest.length === 2 &&
+    subcategoryApi.rest[0] === "works" &&
+    subcategoryApi.rest[1] === "order" &&
+    options.method === "PUT"
+  ) {
+    const record = unknownRecord(options.body, "The work order is required.");
+    const orderedIds = record.orderedIds;
+    if (!Array.isArray(orderedIds) || orderedIds.some((id) => typeof id !== "number")) {
+      throw new Error("The work order is required.");
+    }
+
+    return {
+      statusCode: 200,
+      body: reorderResultSchema.parse(
+        await options.reorderSubcategoryWorks({
+          subcategoryId: subcategoryApi.id,
+          orderedIds,
+        }),
+      ),
+    };
   }
 
   if (subcategoryApi && subcategoryApi.rest.length === 1 && subcategoryApi.rest[0] === "works") {

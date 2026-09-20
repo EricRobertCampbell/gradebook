@@ -44,6 +44,9 @@ export const ipcChannels = {
   workUpdate: "work:update",
   workDelete: "work:delete",
   workCopy: "work:copy",
+  categoryReorder: "category:reorder",
+  categoryReorderChildren: "category:reorderChildren",
+  subcategoryReorderWorks: "subcategory:reorderWorks",
   assessmentUpsert: "assessment:upsert",
   assessmentDelete: "assessment:delete",
   adjustmentCreate: "adjustment:create",
@@ -296,6 +299,7 @@ export const categorySchema = z.object({
   name: z.string(),
   notes: z.string(),
   weight: z.number(),
+  sortOrder: z.number().int(),
 });
 
 export const categoryCreateInputSchema = categoryFieldsSchema.extend({
@@ -317,6 +321,7 @@ export const subcategorySchema = z.object({
   categoryId: z.number().int(),
   name: z.string(),
   weight: z.number(),
+  sortOrder: z.number().int(),
 });
 
 export const subcategoryCreateInputSchema = subcategoryFieldsSchema.extend({
@@ -345,6 +350,7 @@ export const workSchema = z
     date: z.string().nullable(),
     maximumScore: z.number(),
     weight: z.number(),
+    sortOrder: z.number().int(),
   })
   .refine((value) => (value.categoryId != null) !== (value.subcategoryId != null), {
     message: "Work must belong to a category or a sub-category, but not both.",
@@ -361,6 +367,29 @@ export const workCreateInputSchema = workFieldsSchema
 
 export const workUpdateInputSchema = workFieldsSchema.extend({
   id: z.number().int().positive(),
+});
+
+export const reorderResultSchema = z.object({
+  reordered: z.literal(true),
+});
+
+export const categoryReorderInputSchema = classLookupInputSchema.extend({
+  orderedIds: z.array(z.number().int().positive()),
+});
+
+export const categoryChildRefSchema = z.object({
+  kind: z.enum(["subcategory", "work"]),
+  id: z.number().int().positive(),
+});
+
+export const categoryReorderChildrenInputSchema = z.object({
+  categoryId: z.number().int().positive(),
+  items: z.array(categoryChildRefSchema),
+});
+
+export const subcategoryReorderWorksInputSchema = z.object({
+  subcategoryId: z.number().int().positive(),
+  orderedIds: z.array(z.number().int().positive()),
 });
 
 export const assessmentSchema = z.object({
@@ -480,6 +509,11 @@ export type Work = z.infer<typeof workSchema>;
 export type WorkFields = z.infer<typeof workFieldsSchema>;
 export type WorkCreateInput = z.infer<typeof workCreateInputSchema>;
 export type WorkUpdateInput = z.infer<typeof workUpdateInputSchema>;
+export type ReorderResult = z.infer<typeof reorderResultSchema>;
+export type CategoryReorderInput = z.infer<typeof categoryReorderInputSchema>;
+export type CategoryChildRef = z.infer<typeof categoryChildRefSchema>;
+export type CategoryReorderChildrenInput = z.infer<typeof categoryReorderChildrenInputSchema>;
+export type SubcategoryReorderWorksInput = z.infer<typeof subcategoryReorderWorksInputSchema>;
 export type Assessment = z.infer<typeof assessmentSchema>;
 export type AssessmentStatus = z.infer<typeof assessmentStatusSchema>;
 export type AssessmentUpsertInput = z.infer<typeof assessmentUpsertInputSchema>;
@@ -662,6 +696,18 @@ export const ipcContracts = {
   [ipcChannels.workCopy]: {
     input: recordIdInputSchema,
     output: workSchema,
+  },
+  [ipcChannels.categoryReorder]: {
+    input: categoryReorderInputSchema,
+    output: reorderResultSchema,
+  },
+  [ipcChannels.categoryReorderChildren]: {
+    input: categoryReorderChildrenInputSchema,
+    output: reorderResultSchema,
+  },
+  [ipcChannels.subcategoryReorderWorks]: {
+    input: subcategoryReorderWorksInputSchema,
+    output: reorderResultSchema,
   },
   [ipcChannels.assessmentUpsert]: {
     input: assessmentUpsertInputSchema,

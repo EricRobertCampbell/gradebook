@@ -52,6 +52,10 @@ export function classCategoriesPath(schoolYearName: string, internalName: string
   return `${schoolYearClassPath(schoolYearName, internalName)}/categories`;
 }
 
+export function classCategoriesOrderPath(schoolYearName: string, internalName: string): string {
+  return `${classCategoriesPath(schoolYearName, internalName)}/order`;
+}
+
 export function classGradingStructurePath(schoolYearName: string, internalName: string): string {
   return `${schoolYearClassPath(schoolYearName, internalName)}/grading-structure`;
 }
@@ -78,12 +82,20 @@ export function categoryWorksPath(categoryId: number): string {
   return `${categoryPath(categoryId)}/works`;
 }
 
+export function categoryChildrenOrderPath(categoryId: number): string {
+  return `${categoryPath(categoryId)}/children/order`;
+}
+
 export function subcategoryPath(subcategoryId: number): string {
   return `${DEVELOPMENT_API_SUBCATEGORIES_PATH}/${subcategoryId}`;
 }
 
 export function subcategoryWorksPath(subcategoryId: number): string {
   return `${subcategoryPath(subcategoryId)}/works`;
+}
+
+export function subcategoryWorksOrderPath(subcategoryId: number): string {
+  return `${subcategoryWorksPath(subcategoryId)}/order`;
 }
 
 export function workPath(workId: number): string {

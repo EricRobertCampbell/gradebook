@@ -91,6 +91,7 @@ export const categories = sqliteTable("categories", {
   name: text("name").notNull(),
   notes: text("notes").notNull(),
   weight: real("weight").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
 });
 
 export const subcategories = sqliteTable("subcategories", {
@@ -100,6 +101,7 @@ export const subcategories = sqliteTable("subcategories", {
     .references(() => categories.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   weight: real("weight").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
 });
 
 export const works = sqliteTable(
@@ -115,6 +117,7 @@ export const works = sqliteTable(
     date: text("date"),
     maximumScore: real("maximum_score").notNull(),
     weight: real("weight").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [
     check(

@@ -15,6 +15,9 @@ import {
   deleteSubcategory,
   deleteWork,
   getGradingStructure,
+  reorderCategories,
+  reorderCategoryChildren,
+  reorderSubcategoryWorks,
   updateCategory,
   updateSubcategory,
   updateWork,
@@ -286,6 +289,96 @@ describe("grading structure", () => {
       });
       const copiedDated = await copyWork(db, { id: withDateAgain.id });
       expect(copiedDated.date).toBe("2026-10-01");
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("reorders categories, mixed category children, and sub-category work", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      await createSchoolYear(db, "2024-2025");
+      await createClass(db, {
+        schoolYearName: "2024-2025",
+        displayName: "Science",
+        internalName: "sci-9",
+        subject: "Science",
+        section: "9A",
+        notes: "Course description",
+      });
+      const first = await createCategory(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+        name: "Alpha",
+        notes: "",
+        weight: 1,
+      });
+      const second = await createCategory(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+        name: "Beta",
+        notes: "",
+        weight: 1,
+      });
+      await reorderCategories(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+        orderedIds: [second.id, first.id],
+      });
+
+      const subcategory = await createSubcategory(db, {
+        categoryId: first.id,
+        name: "Homework",
+        weight: 1,
+      });
+      const categoryWork = await createWork(db, {
+        categoryId: first.id,
+        name: "Unit test",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      await reorderCategoryChildren(db, {
+        categoryId: first.id,
+        items: [
+          { kind: "work", id: categoryWork.id },
+          { kind: "subcategory", id: subcategory.id },
+        ],
+      });
+      const worksheet = await createWork(db, {
+        subcategoryId: subcategory.id,
+        name: "Worksheet 1",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      const worksheetTwo = await createWork(db, {
+        subcategoryId: subcategory.id,
+        name: "Worksheet 2",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      await reorderSubcategoryWorks(db, {
+        subcategoryId: subcategory.id,
+        orderedIds: [worksheetTwo.id, worksheet.id],
+      });
+
+      const structure = await getGradingStructure(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(structure.categories.map((category) => category.name)).toEqual(["Beta", "Alpha"]);
+      const alpha = structure.categories[1];
+      expect(alpha?.works[0]?.name).toBe("Unit test");
+      expect(alpha?.subcategories[0]?.name).toBe("Homework");
+      expect(alpha?.works[0]?.sortOrder).toBe(0);
+      expect(alpha?.subcategories[0]?.sortOrder).toBe(1);
+      expect(alpha?.subcategories[0]?.works.map((work) => work.name)).toEqual([
+        "Worksheet 2",
+        "Worksheet 1",
+      ]);
     } finally {
       sqlite.close();
     }

@@ -17,6 +17,9 @@ import {
   deleteSubcategory,
   deleteWork,
   getGradingStructure,
+  reorderCategories,
+  reorderCategoryChildren,
+  reorderSubcategoryWorks,
   updateCategory,
   updateSubcategory,
   updateWork,
@@ -24,9 +27,7 @@ import {
 import type { GradebookDatabase } from "./database/status";
 import type { GradingDevelopmentApiHandlers } from "./grading-development-api";
 
-export function gradingApiHandlers(
-  getDb: () => GradebookDatabase,
-): GradingDevelopmentApiHandlers {
+export function gradingApiHandlers(getDb: () => GradebookDatabase): GradingDevelopmentApiHandlers {
   return {
     getGradingStructure: (input) => getGradingStructure(getDb(), input),
     getClassGradebook: (input) => getClassGradebook(getDb(), input),
@@ -42,6 +43,9 @@ export function gradingApiHandlers(
     updateWork: (input) => updateWork(getDb(), input),
     deleteWork: (input) => deleteWork(getDb(), input),
     copyWork: (input) => copyWork(getDb(), input),
+    reorderCategories: (input) => reorderCategories(getDb(), input),
+    reorderCategoryChildren: (input) => reorderCategoryChildren(getDb(), input),
+    reorderSubcategoryWorks: (input) => reorderSubcategoryWorks(getDb(), input),
     upsertAssessment: (input) => upsertAssessment(getDb(), input),
     deleteAssessment: (input) => deleteAssessment(getDb(), input),
     createAdjustment: (input) => createAdjustment(getDb(), input),

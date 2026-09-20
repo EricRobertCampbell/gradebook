@@ -39,7 +39,7 @@ describe("findClassWork", () => {
 });
 
 describe("listCategoryScopes", () => {
-  it("lists sub-categories before category-level work", () => {
+  it("lists mixed category children in sort order", () => {
     expect(listCategoryScopes(categoryFixture())).toEqual([
       { kind: "subcategory", id: 20, label: "Essays" },
       { kind: "work", id: 1, label: "Quiz 1" },
@@ -233,6 +233,7 @@ function categoryFixture(
     name: "Tests",
     notes: "",
     weight: 1,
+    sortOrder: 0,
     works: [quiz],
     subcategories: [
       {
@@ -240,6 +241,7 @@ function categoryFixture(
         categoryId: 10,
         name: "Essays",
         weight: 1,
+        sortOrder: 0,
         works: [essay],
       },
     ],
@@ -260,6 +262,7 @@ function workFixture(
     date: null,
     maximumScore: 10,
     weight: 1,
+    sortOrder: id,
   };
 }
 
