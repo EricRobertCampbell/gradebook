@@ -27,6 +27,7 @@ import {
   getClass,
   getClassById,
   listClasses,
+  listSubjects,
   updateClass,
 } from "./database/classes";
 import {
@@ -123,6 +124,9 @@ function registerDatabaseIpc(): void {
   });
   registerIpcHandler(ipcChannels.classList, async ({ schoolYearName }) => {
     return listClasses(getRuntimeDatabase(), schoolYearName);
+  });
+  registerIpcHandler(ipcChannels.classListSubjects, async () => {
+    return listSubjects(getRuntimeDatabase());
   });
   registerIpcHandler(ipcChannels.classGet, async (input) => {
     return getClass(getRuntimeDatabase(), input);
@@ -300,6 +304,7 @@ void app.whenReady().then(async () => {
       createSchoolYear: (name) => createSchoolYear(getRuntimeDatabase(), name),
       deleteSchoolYear: (name) => deleteSchoolYear(getRuntimeDatabase(), name),
       listClasses: (schoolYearName) => listClasses(getRuntimeDatabase(), schoolYearName),
+      listSubjects: () => listSubjects(getRuntimeDatabase()),
       getClass: (input) => getClass(getRuntimeDatabase(), input),
       getClassById: (input) => getClassById(getRuntimeDatabase(), input),
       createClass: (input) => createClass(getRuntimeDatabase(), input),

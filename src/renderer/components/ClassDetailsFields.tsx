@@ -6,11 +6,17 @@ import { TextField } from "./common/TextField";
 
 type ClassDetailsFieldsProps = {
   values: ClassFields;
+  subjects?: Array<string>;
   disabled?: boolean;
   onChange: (values: ClassFields) => void;
 };
 
-export function ClassDetailsFields({ values, disabled, onChange }: ClassDetailsFieldsProps) {
+export function ClassDetailsFields({
+  values,
+  subjects = [],
+  disabled,
+  onChange,
+}: ClassDetailsFieldsProps) {
   return (
     <div className="fields">
       <TextField
@@ -48,11 +54,17 @@ export function ClassDetailsFields({ values, disabled, onChange }: ClassDetailsF
         label="Subject"
         type="text"
         name="subject"
+        list="class-subject-options"
         value={values.subject}
         onChange={(event) => onChange({ ...values, subject: event.target.value })}
         autoComplete="off"
         disabled={disabled}
       />
+      <datalist id="class-subject-options">
+        {subjects.map((subject) => (
+          <option key={subject} value={subject} />
+        ))}
+      </datalist>
       <TextField
         label="Section"
         type="text"

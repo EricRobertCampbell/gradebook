@@ -172,6 +172,9 @@ describe("class contract", () => {
         schoolYearId: 4,
       },
     ]);
+    expect(
+      ipcContracts[ipcChannels.classListSubjects].output.parse(["Biology", "English"]),
+    ).toEqual(["Biology", "English"]);
     expect(ipcContracts[ipcChannels.classDelete].output.parse({ deleted: true })).toEqual({
       deleted: true,
     });
