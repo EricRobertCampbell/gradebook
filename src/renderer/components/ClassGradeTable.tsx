@@ -22,6 +22,7 @@ import type {
 import { personDisplayName } from "../../shared/person-name";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseRequiredNumber } from "../form-numbers";
+import { handleGradeMarkKeyDown } from "../grade-mark-navigation";
 import { deleteAssessment, upsertAssessment } from "../grading";
 import {
   classWorkDataPath,
@@ -865,14 +866,12 @@ function MarkCells({
             inputMode="decimal"
             value={draft}
             aria-label={`${work.name} mark`}
+            data-student-id={studentId}
+            data-work-id={work.id}
             disabled={saving}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={() => void saveScore()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.currentTarget.blur();
-              }
-            }}
+            onKeyDown={handleGradeMarkKeyDown}
           />
           <button
             type="button"
