@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Gradebook">
+  <rect width="512" height="512" rx="112" fill="#f6f1e8"/>
+  <path
+    fill="#8c2f39"
+    transform="translate(80 72) scale(14.6667)"
+    d="M16.86 3.49a1.75 1.75 0 0 1 2.47 2.48l-10.1 10.1a3.5 3.5 0 0 1-1.47.88l-3.12.9a.75.75 0 0 1-.93-.93l.9-3.12a3.5 3.5 0 0 1 .88-1.47z"
+  />
+</svg>

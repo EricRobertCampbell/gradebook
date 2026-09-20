@@ -15,9 +15,10 @@ const nativeModules = ["better-sqlite3", "node-addon-api"];
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
-    extraResource: ["./drizzle"],
+    extraResource: ["./drizzle", "./images"],
     name: "Gradebook",
     executableName: "gradebook",
+    icon: "images/icon",
   },
   rebuildConfig: {
     extraModules: ["better-sqlite3"],
@@ -26,6 +27,7 @@ const config: ForgeConfig = {
     new MakerSquirrel({
       name: "Gradebook",
       authors: "Eric Campbell",
+      setupIcon: "images/icon.ico",
     }),
     new MakerZIP({}, ["win32", "darwin", "linux"]),
     new MakerRpm({}),
