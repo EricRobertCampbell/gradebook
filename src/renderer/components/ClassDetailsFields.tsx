@@ -1,3 +1,4 @@
+import { nextClassInternalName } from "../../shared/class-internal-name";
 import type { ClassFields } from "../../shared/ipc";
 import "./common/Field.css";
 
@@ -16,7 +17,18 @@ export function ClassDetailsFields({ values, disabled, onChange }: ClassDetailsF
           type="text"
           name="displayName"
           value={values.displayName}
-          onChange={(event) => onChange({ ...values, displayName: event.target.value })}
+          onChange={(event) => {
+            const displayName = event.target.value;
+            onChange({
+              ...values,
+              displayName,
+              internalName: nextClassInternalName(
+                displayName,
+                values.displayName,
+                values.internalName,
+              ),
+            });
+          }}
           autoComplete="off"
           disabled={disabled}
           required
