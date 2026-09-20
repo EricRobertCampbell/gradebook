@@ -3,7 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { bootstrapDatabase } from "./client";
-import { createClass, deleteClass, getClass, listClasses, updateClass } from "./classes";
+import {
+  createClass,
+  deleteClass,
+  getClass,
+  listClasses,
+  listSubjects,
+  updateClass,
+} from "./classes";
 import { createSchoolYear, deleteSchoolYear } from "./school-years";
 
 const createdDirectories: Array<string> = [];
@@ -55,6 +62,7 @@ describe("classes", () => {
         expect.objectContaining({ displayName: "English", internalName: "eng-9" }),
         expect.objectContaining({ displayName: "Science", internalName: "sci-9" }),
       ]);
+      await expect(listSubjects(db)).resolves.toEqual(["Biology", "English"]);
 
       await expect(
         getClass(db, { schoolYearName: "2024-2025", internalName: "sci-9" }),
@@ -101,13 +109,13 @@ describe("classes", () => {
       await createSchoolYear(db, "2025-2026");
 
       await createClass(db, classInput("2024-2025", "Science", "sci-9"));
-      await expect(createClass(db, classInput("2024-2025", "Science again", "sci-9"))).rejects.toThrow(
-        'A class with internal name "sci-9" already exists in this school year.',
-      );
-
       await expect(
-        createClass(db, classInput("2025-2026", "Science", "sci-9")),
-      ).resolves.toEqual(expect.objectContaining({ internalName: "sci-9" }));
+        createClass(db, classInput("2024-2025", "Science again", "sci-9")),
+      ).rejects.toThrow('A class with internal name "sci-9" already exists in this school year.');
+
+      await expect(createClass(db, classInput("2025-2026", "Science", "sci-9"))).resolves.toEqual(
+        expect.objectContaining({ internalName: "sci-9" }),
+      );
 
       await expect(
         createClass(db, {

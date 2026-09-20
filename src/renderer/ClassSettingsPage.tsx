@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Class, ClassFields, SchoolYear, Student } from "../shared/ipc";
 import { personDisplayName, personFullName } from "../shared/person-name";
 import "./ClassSettingsPage.css";
-import { deleteClass, getClassById, updateClass } from "./classes";
+import { deleteClass, getClassById, listSubjects, updateClass } from "./classes";
 import { ClassAssessmentSetup } from "./components/ClassAssessmentSetup";
 import { ClassDetailsFields, emptyClassFields } from "./components/ClassDetailsFields";
 import "./components/common/ActionButton.css";
@@ -28,6 +28,7 @@ export function ClassSettingsPage() {
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null);
   const [schoolClass, setSchoolClass] = useState<Class | null>(null);
   const [values, setValues] = useState<ClassFields>(emptyClassFields());
+  const [subjects, setSubjects] = useState<Array<string>>([]);
   const [enrolled, setEnrolled] = useState<Array<Student>>([]);
   const [allStudents, setAllStudents] = useState<Array<Student>>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +65,10 @@ export function ClassSettingsPage() {
         throw new Error("That class was not found.");
       }
 
-      const [loadedEnrolled, loadedStudents] = await Promise.all([
+      const [loadedEnrolled, loadedStudents, listedSubjects] = await Promise.all([
         listStudentsForClass({ schoolYearName: year.name, internalName: loaded.internalName }),
         listStudents(),
+        listSubjects(),
       ]);
       setSchoolYear(year);
       setSchoolClass(loaded);
@@ -79,11 +81,13 @@ export function ClassSettingsPage() {
       });
       setEnrolled(loadedEnrolled);
       setAllStudents(loadedStudents);
+      setSubjects(listedSubjects);
     } catch (caught) {
       setSchoolYear(null);
       setSchoolClass(null);
       setEnrolled([]);
       setAllStudents([]);
+      setSubjects([]);
       setError(describeError(caught, "That class was not found."));
     } finally {
       setLoading(false);
@@ -240,7 +244,12 @@ export function ClassSettingsPage() {
 
       {!loading && schoolClass ? (
         <form className="class-settings-form" onSubmit={(event) => void onSave(event)}>
-          <ClassDetailsFields values={values} onChange={setValues} disabled={saving} />
+          <ClassDetailsFields
+            values={values}
+            subjects={subjects}
+            onChange={setValues}
+            disabled={saving}
+          />
           <button type="submit" className="action-button" disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
           </button>
@@ -252,7 +261,9 @@ export function ClassSettingsPage() {
       ) : null}
 
       <h2 className="class-settings-heading">Students</h2>
-      {!loading && enrolled.length === 0 ? <p className="muted">No students in this class yet.</p> : null}
+      {!loading && enrolled.length === 0 ? (
+        <p className="muted">No students in this class yet.</p>
+      ) : null}
       {enrolled.length > 0 ? (
         <ul className="record-list">
           {enrolled.map((student) => (
@@ -320,7 +331,11 @@ export function ClassSettingsPage() {
           </ul>
         )}
         <div className="modal-actions">
-          <button type="button" className="action-button action-button--secondary" onClick={closeAddModal}>
+          <button
+            type="button"
+            className="action-button action-button--secondary"
+            onClick={closeAddModal}
+          >
             Close
           </button>
         </div>

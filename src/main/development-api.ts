@@ -3,6 +3,7 @@ import {
   classDeleteResultSchema,
   classListSchema,
   classSchema,
+  classSubjectListSchema,
   databaseImportResultSchema,
   databaseStatusSchema,
   deleteResultSchema,
@@ -48,6 +49,7 @@ import {
   DEVELOPMENT_API_SCHOOL_YEARS_PATH,
   DEVELOPMENT_API_STATUS_PATH,
   DEVELOPMENT_API_STUDENTS_PATH,
+  DEVELOPMENT_API_SUBJECTS_PATH,
   DEVELOPMENT_API_YEARS_PATH,
 } from "../shared/development-api";
 import {
@@ -71,6 +73,7 @@ export type DevelopmentApiHandlers = {
   createSchoolYear: (name: string) => Promise<SchoolYear>;
   deleteSchoolYear: (name: string) => Promise<SchoolYearDeleteResult>;
   listClasses: (schoolYearName: string) => Promise<Array<Class>>;
+  listSubjects: () => Promise<Array<string>>;
   getClass: (input: ClassLookupInput) => Promise<Class>;
   getClassById: (input: RecordIdInput) => Promise<Class>;
   createClass: (input: ClassCreateInput) => Promise<Class>;
@@ -95,7 +98,9 @@ function decodePathSegment(segment: string): string {
   return decodeURIComponent(segment);
 }
 
-function schoolYearApiPath(pathname: string): { yearName: string; rest: Array<string> } | undefined {
+function schoolYearApiPath(
+  pathname: string,
+): { yearName: string; rest: Array<string> } | undefined {
   const prefix = `${DEVELOPMENT_API_SCHOOL_YEARS_PATH}/`;
 
   if (!pathname.startsWith(prefix)) {
@@ -112,7 +117,12 @@ function schoolYearApiPath(pathname: string): { yearName: string; rest: Array<st
 }
 
 function readJsonName(body: unknown): string {
-  if (typeof body === "object" && body !== null && "name" in body && typeof body.name === "string") {
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "name" in body &&
+    typeof body.name === "string"
+  ) {
     return body.name;
   }
 
@@ -338,6 +348,13 @@ export async function handleDevelopmentApiRequest(
     };
   }
 
+  if (options.method === "GET" && options.pathname === DEVELOPMENT_API_SUBJECTS_PATH) {
+    return {
+      statusCode: 200,
+      body: classSubjectListSchema.parse(await options.listSubjects()),
+    };
+  }
+
   if (options.method === "GET" && options.pathname === DEVELOPMENT_API_SCHOOL_YEARS_PATH) {
     return {
       statusCode: 200,
@@ -548,7 +565,12 @@ export async function handleDevelopmentApiRequest(
     }
   }
 
-  if (studentApi && studentApi.rest.length === 2 && studentApi.rest[0] === "parents" && studentApi.rest[1]) {
+  if (
+    studentApi &&
+    studentApi.rest.length === 2 &&
+    studentApi.rest[0] === "parents" &&
+    studentApi.rest[1]
+  ) {
     if (options.method === "DELETE") {
       return {
         statusCode: 200,
@@ -652,7 +674,8 @@ function writeDevelopmentApiResponse(
 
   if (result.body instanceof Uint8Array) {
     headers["Content-Type"] = result.contentType ?? "application/octet-stream";
-    headers["Content-Disposition"] = `attachment; filename="${result.fileName ?? "gradebook.sqlite"}"`;
+    headers["Content-Disposition"] =
+      `attachment; filename="${result.fileName ?? "gradebook.sqlite"}"`;
     response.writeHead(result.statusCode, headers);
     response.end(Buffer.from(result.body));
     return;

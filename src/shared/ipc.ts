@@ -11,6 +11,7 @@ export const ipcChannels = {
   schoolYearCreate: "schoolYear:create",
   schoolYearDelete: "schoolYear:delete",
   classList: "class:list",
+  classListSubjects: "class:listSubjects",
   classGet: "class:get",
   classGetById: "class:getById",
   classCreate: "class:create",
@@ -78,9 +79,7 @@ export const schoolYearNameSchema = z
   .min(1, "A school year name is required.")
   .refine(
     (name) =>
-      !RESERVED_SCHOOL_YEAR_NAMES.some(
-        (reserved) => reserved.toLowerCase() === name.toLowerCase(),
-      ),
+      !RESERVED_SCHOOL_YEAR_NAMES.some((reserved) => reserved.toLowerCase() === name.toLowerCase()),
     "That name is reserved.",
   )
   .refine((name) => !name.includes("/") && !name.includes("#"), {
@@ -106,10 +105,7 @@ export type SchoolYear = z.infer<typeof schoolYearSchema>;
 export type SchoolYearNameInput = z.infer<typeof schoolYearNameInputSchema>;
 export type SchoolYearDeleteResult = z.infer<typeof schoolYearDeleteResultSchema>;
 
-export const classDisplayNameSchema = z
-  .string()
-  .trim()
-  .min(1, "A class display name is required.");
+export const classDisplayNameSchema = z.string().trim().min(1, "A class display name is required.");
 
 export const classInternalNameSchema = z
   .string()
@@ -146,6 +142,8 @@ export const classSchema = z.object({
 });
 
 export const classListSchema = z.array(classSchema);
+
+export const classSubjectListSchema = z.array(z.string());
 
 export const classSchoolYearInputSchema = z.object({
   schoolYearName: schoolYearNameSchema,
@@ -280,9 +278,7 @@ export const maximumScoreSchema = z
   .finite({ error: "A maximum score must be a number." })
   .positive("A maximum score must be greater than 0.");
 
-export const isoDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
+export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
 
 export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi"]);
 
@@ -530,6 +526,10 @@ export const ipcContracts = {
   [ipcChannels.classList]: {
     input: classSchoolYearInputSchema,
     output: classListSchema,
+  },
+  [ipcChannels.classListSubjects]: {
+    input: z.undefined(),
+    output: classSubjectListSchema,
   },
   [ipcChannels.classGet]: {
     input: classLookupInputSchema,

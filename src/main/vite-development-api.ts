@@ -8,6 +8,7 @@ import {
   getClass,
   getClassById,
   listClasses,
+  listSubjects,
   updateClass,
 } from "./database/classes";
 import {
@@ -162,6 +163,7 @@ export function gradebookDevelopmentApiPlugin(): Plugin {
         createSchoolYear: (name: string) => createSchoolYear(getRuntimeDatabase(), name),
         deleteSchoolYear: (name: string) => deleteSchoolYear(getRuntimeDatabase(), name),
         listClasses: (schoolYearName: string) => listClasses(getRuntimeDatabase(), schoolYearName),
+        listSubjects: () => listSubjects(getRuntimeDatabase()),
         getClass: (input: Parameters<typeof getClass>[1]) => getClass(getRuntimeDatabase(), input),
         getClassById: (input: Parameters<typeof getClassById>[1]) =>
           getClassById(getRuntimeDatabase(), input),
@@ -221,7 +223,13 @@ export function gradebookDevelopmentApiPlugin(): Plugin {
           });
         })()
           .then((result) => {
-            sendResult(response, result.statusCode, result.body, result.contentType, result.fileName);
+            sendResult(
+              response,
+              result.statusCode,
+              result.body,
+              result.contentType,
+              result.fileName,
+            );
           })
           .catch((error: unknown) => {
             sendResult(response, 400, {

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, ne } from "drizzle-orm";
 import {
   classCreateInputSchema,
   classLookupInputSchema,
@@ -16,7 +16,10 @@ import { classes } from "./schema";
 import { getSchoolYearByName } from "./school-years";
 import type { GradebookDatabase } from "./status";
 
-export async function listClasses(db: GradebookDatabase, schoolYearName: string): Promise<Array<Class>> {
+export async function listClasses(
+  db: GradebookDatabase,
+  schoolYearName: string,
+): Promise<Array<Class>> {
   const year = await getSchoolYearByName(db, parseSchoolYearName(schoolYearName));
 
   return db
@@ -24,6 +27,16 @@ export async function listClasses(db: GradebookDatabase, schoolYearName: string)
     .from(classes)
     .where(eq(classes.schoolYearId, year.id))
     .orderBy(asc(classes.displayName));
+}
+
+export async function listSubjects(db: GradebookDatabase): Promise<Array<string>> {
+  const rows = await db
+    .selectDistinct({ subject: classes.subject })
+    .from(classes)
+    .where(ne(classes.subject, ""))
+    .orderBy(asc(classes.subject));
+
+  return rows.map((row) => row.subject);
 }
 
 export async function getClass(db: GradebookDatabase, input: ClassLookupInput): Promise<Class> {

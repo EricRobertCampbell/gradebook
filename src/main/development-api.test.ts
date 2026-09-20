@@ -9,6 +9,7 @@ import {
   DEVELOPMENT_API_SCHOOL_YEARS_PATH,
   DEVELOPMENT_API_STATUS_PATH,
   DEVELOPMENT_API_STUDENTS_PATH,
+  DEVELOPMENT_API_SUBJECTS_PATH,
   parentPath,
   categoryCopyPath,
   classByIdPath,
@@ -34,6 +35,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
   createSchoolYear: async (name) => ({ id: 1, name }),
   deleteSchoolYear: async () => ({ deleted: true }),
   listClasses: async () => [],
+  listSubjects: async () => [],
   getClass: async ({ internalName }) => sampleClass(internalName),
   getClassById: async ({ id }) => sampleClass("sci-9", { id }),
   createClass: async ({ displayName, internalName, subject, section, notes }) => ({
@@ -258,6 +260,18 @@ describe("handleDevelopmentApiRequest", () => {
   });
 
   it("lists, creates, fetches, and deletes classes on the typed development routes", async () => {
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "GET",
+        pathname: DEVELOPMENT_API_SUBJECTS_PATH,
+        listSubjects: async () => ["Biology", "Mathematics 30-1"],
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: ["Biology", "Mathematics 30-1"],
+    });
+
     await expect(
       handleDevelopmentApiRequest({
         ...unusedHandlers,

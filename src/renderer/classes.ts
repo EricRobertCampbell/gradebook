@@ -1,5 +1,6 @@
 import {
   classByIdPath,
+  DEVELOPMENT_API_SUBJECTS_PATH,
   schoolYearClassPath,
   schoolYearClassesPath,
 } from "../shared/development-api";
@@ -9,6 +10,7 @@ import {
   classListSchema,
   classLookupInputSchema,
   classSchema,
+  classSubjectListSchema,
   classUpdateInputSchema,
   recordIdInputSchema,
   type Class,
@@ -29,6 +31,20 @@ export async function listClasses(schoolYearName: string): Promise<Array<Class>>
       schoolYearClassesPath(schoolYearName),
       undefined,
       "The classes could not be loaded.",
+    ),
+  );
+}
+
+export async function listSubjects(): Promise<Array<string>> {
+  if (hasPreloadClassListSubjectsApi() && window.gradebook) {
+    return window.gradebook.classes.listSubjects();
+  }
+
+  return classSubjectListSchema.parse(
+    await requestDevelopmentApi(
+      DEVELOPMENT_API_SUBJECTS_PATH,
+      undefined,
+      "The subjects could not be loaded.",
     ),
   );
 }
@@ -119,6 +135,10 @@ export async function deleteClass(input: ClassLookupInput): Promise<ClassDeleteR
 
 function hasPreloadClassesApi(): boolean {
   return typeof window.gradebook?.classes?.list === "function";
+}
+
+function hasPreloadClassListSubjectsApi(): boolean {
+  return typeof window.gradebook?.classes?.listSubjects === "function";
 }
 
 function hasPreloadClassGetByIdApi(): boolean {

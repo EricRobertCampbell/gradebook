@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Class, ClassFields, SchoolYear } from "../shared/ipc";
 import "./SchoolYearPage.css";
-import { createClass, listClasses } from "./classes";
+import { createClass, listClasses, listSubjects } from "./classes";
 import { ClassDetailsFields, emptyClassFields } from "./components/ClassDetailsFields";
 import "./components/common/ActionButton.css";
 import "./components/common/BackLink.css";
@@ -20,6 +20,7 @@ export function SchoolYearPage() {
   const schoolYearId = parseRouteId(schoolYearIdParam);
   const [schoolYear, setSchoolYear] = useState<SchoolYear | null>(null);
   const [classes, setClasses] = useState<Array<Class>>([]);
+  const [subjects, setSubjects] = useState<Array<string>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<DisplayError | null>(null);
@@ -41,10 +42,16 @@ export function SchoolYearPage() {
     try {
       const year = await getSchoolYear({ id: schoolYearId });
       setSchoolYear(year);
-      setClasses(await listClasses(year.name));
+      const [listedClasses, listedSubjects] = await Promise.all([
+        listClasses(year.name),
+        listSubjects(),
+      ]);
+      setClasses(listedClasses);
+      setSubjects(listedSubjects);
     } catch (caught) {
       setSchoolYear(null);
       setClasses([]);
+      setSubjects([]);
       setError(describeError(caught, "The classes could not be loaded."));
     } finally {
       setLoading(false);
@@ -151,7 +158,12 @@ export function SchoolYearPage() {
       <Modal title="Add class" open={addOpen} onClose={closeAddModal}>
         <form className="class-add-form" onSubmit={(event) => void onAddClass(event)}>
           <ErrorDisplay error={addError} />
-          <ClassDetailsFields values={newClass} onChange={setNewClass} disabled={saving} />
+          <ClassDetailsFields
+            values={newClass}
+            subjects={subjects}
+            onChange={setNewClass}
+            disabled={saving}
+          />
           <div className="modal-actions">
             <button
               type="button"

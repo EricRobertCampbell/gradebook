@@ -3,6 +3,7 @@ export const DEVELOPMENT_API_STATUS_PATH = "/api/database/status";
 export const DEVELOPMENT_API_EXPORT_PATH = "/api/database/export";
 export const DEVELOPMENT_API_IMPORT_PATH = "/api/database/import";
 export const DEVELOPMENT_API_SCHOOL_YEARS_PATH = "/api/school-years";
+export const DEVELOPMENT_API_SUBJECTS_PATH = "/api/subjects";
 
 export function schoolYearClassesPath(schoolYearName: string): string {
   return `${DEVELOPMENT_API_SCHOOL_YEARS_PATH}/${encodeURIComponent(schoolYearName)}/classes`;

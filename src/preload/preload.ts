@@ -23,6 +23,7 @@ const gradebookApi: GradebookApi = {
   },
   classes: {
     list: (input) => invoke(ipcChannels.classList, input),
+    listSubjects: () => invoke(ipcChannels.classListSubjects),
     get: (input) => invoke(ipcChannels.classGet, input),
     getById: (input) => invoke(ipcChannels.classGetById, input),
     create: (input) => invoke(ipcChannels.classCreate, input),

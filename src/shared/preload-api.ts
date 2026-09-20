@@ -56,6 +56,7 @@ export type GradebookApi = {
   };
   classes: {
     list: (input: ClassSchoolYearInput) => Promise<Array<Class>>;
+    listSubjects: () => Promise<Array<string>>;
     get: (input: ClassLookupInput) => Promise<Class>;
     getById: (input: RecordIdInput) => Promise<Class>;
     create: (input: ClassCreateInput) => Promise<Class>;
