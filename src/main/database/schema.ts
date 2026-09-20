@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { check, integer, primaryKey, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  unique,
+} from "drizzle-orm/sqlite-core";
 
 export const appMetadata = sqliteTable("app_metadata", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -104,6 +112,7 @@ export const works = sqliteTable(
     }),
     name: text("name").notNull(),
     notes: text("notes").notNull(),
+    date: text("date"),
     maximumScore: real("maximum_score").notNull(),
     weight: real("weight").notNull(),
   },

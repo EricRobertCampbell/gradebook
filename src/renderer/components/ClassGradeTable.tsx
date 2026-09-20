@@ -212,7 +212,7 @@ export function ClassGradeTable({
                           <HeaderLabel
                             name={work.name}
                             description={work.notes}
-                            detail={`/${work.maximumScore}`}
+                            detail={workHeaderDetail(work)}
                             weight={work.weight}
                             onEdit={() => setStructureEditor({ kind: "work", work })}
                             editLabel={`Edit ${work.name}`}
@@ -339,7 +339,7 @@ function CategorySubheaders({
           <HeaderLabel
             name={work.name}
             description={work.notes}
-            detail={`/${work.maximumScore}`}
+            detail={workHeaderDetail(work)}
             weight={work.weight}
             onEdit={() => onEditWork(work)}
             editLabel={`Edit ${work.name}`}
@@ -1038,6 +1038,14 @@ function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): Asse
   }
 
   return editor;
+}
+
+function workHeaderDetail(work: GradeWork): string {
+  if (work.date) {
+    return `${work.date} · /${work.maximumScore}`;
+  }
+
+  return `/${work.maximumScore}`;
 }
 
 function canCollapseCategory(category: GradeCategory): boolean {

@@ -59,9 +59,7 @@ import {
 } from "../shared/ipc";
 import { requestDevelopmentApi } from "./development-request";
 
-export async function getGradingStructure(
-  input: ClassLookupInput,
-): Promise<ClassGradingStructure> {
+export async function getGradingStructure(input: ClassLookupInput): Promise<ClassGradingStructure> {
   const lookup = parseLookup(input);
 
   if (hasPreloadGradingApi() && window.gradebook) {
@@ -286,6 +284,7 @@ export async function createWork(input: WorkCreateInput): Promise<Work> {
         body: JSON.stringify({
           name: parsed.name,
           notes: parsed.notes,
+          date: parsed.date ? parsed.date : null,
           maximumScore: parsed.maximumScore,
           weight: parsed.weight,
         }),
@@ -311,6 +310,7 @@ export async function updateWork(input: WorkUpdateInput): Promise<Work> {
         body: JSON.stringify({
           name: parsed.name,
           notes: parsed.notes,
+          date: parsed.date ? parsed.date : null,
           maximumScore: parsed.maximumScore,
           weight: parsed.weight,
         }),
@@ -328,7 +328,11 @@ export async function deleteWork(input: RecordIdInput): Promise<DeleteResult> {
   }
 
   return deleteResultSchema.parse(
-    await requestDevelopmentApi(workPath(parsed.id), { method: "DELETE" }, "The work could not be deleted."),
+    await requestDevelopmentApi(
+      workPath(parsed.id),
+      { method: "DELETE" },
+      "The work could not be deleted.",
+    ),
   );
 }
 
@@ -379,11 +383,7 @@ export async function upsertAssessment(input: AssessmentUpsertInput): Promise<As
 }
 
 export async function deleteAssessment(input: AssessmentLookupInput): Promise<DeleteResult> {
-  const parsed = parseWith(
-    assessmentLookupInputSchema,
-    input,
-    "That assessment was not found.",
-  );
+  const parsed = parseWith(assessmentLookupInputSchema, input, "That assessment was not found.");
 
   if (hasPreloadGradingApi() && window.gradebook) {
     return window.gradebook.assessments.delete(parsed);
@@ -481,7 +481,13 @@ function parseLookup(input: ClassLookupInput): ClassLookupInput {
 }
 
 function parseWith<T>(
-  schema: { safeParse: (input: unknown) => { success: true; data: T } | { success: false; error: { issues: Array<{ message: string }> } } },
+  schema: {
+    safeParse: (
+      input: unknown,
+    ) =>
+      | { success: true; data: T }
+      | { success: false; error: { issues: Array<{ message: string }> } };
+  },
   input: unknown,
   fallback: string,
 ): T {

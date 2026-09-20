@@ -257,6 +257,7 @@ function workFixture(
     subcategoryId,
     name: id === 1 ? "Quiz 1" : "Essay 1",
     notes: "",
+    date: null,
     maximumScore: 10,
     weight: 1,
   };

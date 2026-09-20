@@ -35,6 +35,7 @@ type GradeStructureEditorProps = {
 type EditorFields = {
   name: string;
   notes: string;
+  date: string;
   weight: string;
   maximumScore: string;
 };
@@ -93,6 +94,18 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
             disabled={saving}
           />
         ) : null}
+        {showsMaximumScore(target) ? (
+          <TextField
+            label="Date (YYYY-MM-DD)"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            autoComplete="off"
+            spellCheck={false}
+            value={fields.date}
+            onChange={(event) => setFields({ ...fields, date: event.target.value })}
+            disabled={saving}
+          />
+        ) : null}
         <TextField
           label="Weight (%)"
           required
@@ -120,7 +133,7 @@ export function GradeStructureEditor({ target, onClose, onChanged }: GradeStruct
 }
 
 function emptyFields(): EditorFields {
-  return { name: "", notes: "", weight: "1", maximumScore: "" };
+  return { name: "", notes: "", date: "", weight: "1", maximumScore: "" };
 }
 
 function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
@@ -128,6 +141,7 @@ function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
     return {
       name: target.category.name,
       notes: target.category.notes,
+      date: "",
       weight: String(target.category.weight),
       maximumScore: "",
     };
@@ -137,6 +151,7 @@ function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
     return {
       name: target.subcategory.name,
       notes: "",
+      date: "",
       weight: String(target.subcategory.weight),
       maximumScore: "",
     };
@@ -146,6 +161,7 @@ function fieldsForTarget(target: GradeStructureEditorTarget): EditorFields {
     return {
       name: target.work.name,
       notes: target.work.notes,
+      date: target.work.date ?? "",
       weight: String(target.work.weight),
       maximumScore: String(target.work.maximumScore),
     };
@@ -244,6 +260,7 @@ async function saveTarget(target: GradeStructureEditorTarget, fields: EditorFiel
         : { subcategoryId: target.subcategoryId }),
       name,
       notes: fields.notes,
+      date: fields.date,
       maximumScore,
       weight,
     });
@@ -254,6 +271,7 @@ async function saveTarget(target: GradeStructureEditorTarget, fields: EditorFiel
     id: target.work.id,
     name,
     notes: fields.notes,
+    date: fields.date,
     maximumScore,
     weight,
   });

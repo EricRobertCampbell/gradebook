@@ -113,21 +113,23 @@ const unusedHandlers: DevelopmentApiHandlers = {
     name: "Copy of Quiz",
     weight: 1,
   }),
-  createWork: async ({ categoryId, subcategoryId, name, notes, maximumScore, weight }) => ({
+  createWork: async ({ categoryId, subcategoryId, name, notes, date, maximumScore, weight }) => ({
     id: 1,
     categoryId: categoryId ?? null,
     subcategoryId: subcategoryId ?? null,
     name,
     notes,
+    date: date ?? null,
     maximumScore,
     weight,
   }),
-  updateWork: async ({ id, name, notes, maximumScore, weight }) => ({
+  updateWork: async ({ id, name, notes, date, maximumScore, weight }) => ({
     id,
     categoryId: null,
     subcategoryId: 1,
     name,
     notes,
+    date: date ?? null,
     maximumScore,
     weight,
   }),
@@ -138,6 +140,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     subcategoryId: 1,
     name: "Copy of Homework",
     notes: "",
+    date: null,
     maximumScore: 10,
     weight: 1,
   }),
