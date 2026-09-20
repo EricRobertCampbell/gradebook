@@ -6,6 +6,7 @@ import { ErrorDisplay } from "./components/common/ErrorDisplay";
 import "./components/common/RecordList.css";
 import "./SchoolYearsPanel.css";
 import { describeError, type DisplayError } from "./errors";
+import { readHomeVisited, shouldOpenOnlySchoolYear, writeHomeVisited } from "./home-visit";
 import { schoolYearPath } from "./paths";
 import { createSchoolYear, listSchoolYears } from "./school-years";
 
@@ -20,15 +21,33 @@ export function SchoolYearsPanel() {
   const loadYears = useCallback(async () => {
     setLoading(true);
     setError(null);
+    let stayOnHome = true;
 
     try {
-      setYears(await listSchoolYears());
+      const listed = await listSchoolYears();
+      const homeAlreadyVisited = readHomeVisited(sessionStorage);
+
+      if (shouldOpenOnlySchoolYear(listed.length, homeAlreadyVisited)) {
+        const onlyYear = listed[0];
+
+        if (onlyYear) {
+          stayOnHome = false;
+          writeHomeVisited(sessionStorage);
+          navigate(schoolYearPath(onlyYear.id), { replace: true });
+          return;
+        }
+      }
+
+      writeHomeVisited(sessionStorage);
+      setYears(listed);
     } catch (caught) {
       setError(describeError(caught, "The school years could not be loaded."));
     } finally {
-      setLoading(false);
+      if (stayOnHome) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     void loadYears();
