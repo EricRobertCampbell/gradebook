@@ -2,14 +2,17 @@ import {
   adjustmentPath,
   assessmentAdjustmentsPath,
   categoryCopyPath,
+  categoryChildrenOrderPath,
   categoryPath,
   categorySubcategoriesPath,
   categoryWorksPath,
+  classCategoriesOrderPath,
   classCategoriesPath,
   classGradebookPath,
   classGradingStructurePath,
   subcategoryCopyPath,
   subcategoryPath,
+  subcategoryWorksOrderPath,
   subcategoryWorksPath,
   workCopyPath,
   workPath,
@@ -23,6 +26,8 @@ import {
   assessmentSchema,
   assessmentUpsertInputSchema,
   categoryCreateInputSchema,
+  categoryReorderChildrenInputSchema,
+  categoryReorderInputSchema,
   categorySchema,
   categoryUpdateInputSchema,
   classGradebookSchema,
@@ -30,7 +35,9 @@ import {
   classLookupInputSchema,
   deleteResultSchema,
   recordIdInputSchema,
+  reorderResultSchema,
   subcategoryCreateInputSchema,
+  subcategoryReorderWorksInputSchema,
   subcategorySchema,
   subcategoryUpdateInputSchema,
   workCreateInputSchema,
@@ -44,14 +51,18 @@ import {
   type AssessmentUpsertInput,
   type Category,
   type CategoryCreateInput,
+  type CategoryReorderChildrenInput,
+  type CategoryReorderInput,
   type CategoryUpdateInput,
   type ClassGradebook,
   type ClassGradingStructure,
   type ClassLookupInput,
   type DeleteResult,
   type RecordIdInput,
+  type ReorderResult,
   type Subcategory,
   type SubcategoryCreateInput,
+  type SubcategoryReorderWorksInput,
   type SubcategoryUpdateInput,
   type Work,
   type WorkCreateInput,
@@ -348,6 +359,82 @@ export async function copyWork(input: RecordIdInput): Promise<Work> {
       workCopyPath(parsed.id),
       { method: "POST" },
       "The work could not be copied.",
+    ),
+  );
+}
+
+export async function reorderCategories(input: CategoryReorderInput): Promise<ReorderResult> {
+  const parsed = parseWith(
+    categoryReorderInputSchema,
+    input,
+    "Those categories could not be reordered.",
+  );
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.categories.reorder(parsed);
+  }
+
+  return reorderResultSchema.parse(
+    await requestDevelopmentApi(
+      classCategoriesOrderPath(parsed.schoolYearName, parsed.internalName),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: parsed.orderedIds }),
+      },
+      "Those categories could not be reordered.",
+    ),
+  );
+}
+
+export async function reorderCategoryChildren(
+  input: CategoryReorderChildrenInput,
+): Promise<ReorderResult> {
+  const parsed = parseWith(
+    categoryReorderChildrenInputSchema,
+    input,
+    "Those items could not be reordered.",
+  );
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.categories.reorderChildren(parsed);
+  }
+
+  return reorderResultSchema.parse(
+    await requestDevelopmentApi(
+      categoryChildrenOrderPath(parsed.categoryId),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: parsed.items }),
+      },
+      "Those items could not be reordered.",
+    ),
+  );
+}
+
+export async function reorderSubcategoryWorks(
+  input: SubcategoryReorderWorksInput,
+): Promise<ReorderResult> {
+  const parsed = parseWith(
+    subcategoryReorderWorksInputSchema,
+    input,
+    "Those pieces of work could not be reordered.",
+  );
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.subcategories.reorderWorks(parsed);
+  }
+
+  return reorderResultSchema.parse(
+    await requestDevelopmentApi(
+      subcategoryWorksOrderPath(parsed.subcategoryId),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: parsed.orderedIds }),
+      },
+      "Those pieces of work could not be reordered.",
     ),
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { assessmentStatusCode, formatGradePercent, formatWeightPercent } from "../shared/grades";
+import { sortCategoryChildren } from "../shared/grading-order";
 import type {
   Adjustment,
   Class,
@@ -87,11 +88,9 @@ export function StudentClassReportPage() {
     void loadReport();
   }, [loadReport]);
 
-  const classHref =
-    schoolClass && schoolYear ? classPath(schoolYear.id, schoolClass.id) : "/";
+  const classHref = schoolClass && schoolYear ? classPath(schoolYear.id, schoolClass.id) : "/";
   const studentHref = studentId ? studentPath(studentId) : "/";
-  const dataHref =
-    studentId && classId ? studentClassDataPath(studentId, classId) : studentHref;
+  const dataHref = studentId && classId ? studentClassDataPath(studentId, classId) : studentHref;
 
   return (
     <>
@@ -212,17 +211,24 @@ function CategoryReportRows({
         <td />
         <td>{formatGradePercent(percent)}</td>
       </tr>
-      {category.works.map((work, workIndex) => {
-        const workGrade = workGrades[workIndex] ?? {
-          workId: work.id,
-          assessment: null,
-          adjustments: [],
-          percent: null,
-        };
+      {sortCategoryChildren(category.subcategories, category.works).map((child) => {
+        if (child.kind === "work") {
+          const workIndex = category.works.findIndex((work) => work.id === child.item.id);
+          const work = child.item;
+          const workGrade = workGrades[workIndex] ?? {
+            workId: work.id,
+            assessment: null,
+            adjustments: [],
+            percent: null,
+          };
 
-        return <WorkReportRow key={work.id} work={work} workGrade={workGrade} />;
-      })}
-      {category.subcategories.map((subcategory, subcategoryIndex) => {
+          return <WorkReportRow key={work.id} work={work} workGrade={workGrade} />;
+        }
+
+        const subcategory = child.item;
+        const subcategoryIndex = category.subcategories.findIndex(
+          (item) => item.id === subcategory.id,
+        );
         const subcategoryGrade = subcategoryGrades[subcategoryIndex];
 
         return (
@@ -270,13 +276,7 @@ function SubcategoryReportRows({
   );
 }
 
-function WorkReportRow({
-  work,
-  workGrade,
-}: {
-  work: GradeWork;
-  workGrade: StudentWorkGrade;
-}) {
+function WorkReportRow({ work, workGrade }: { work: GradeWork; workGrade: StudentWorkGrade }) {
   const statusCode = workGrade.assessment
     ? assessmentStatusCode(workGrade.assessment.status)
     : null;

@@ -1,29 +1,37 @@
 import { and, asc, eq, inArray, or } from "drizzle-orm";
 import {
   categoryCreateInputSchema,
+  categoryReorderChildrenInputSchema,
+  categoryReorderInputSchema,
   categoryUpdateInputSchema,
   classLookupInputSchema,
   recordIdInputSchema,
   subcategoryCreateInputSchema,
+  subcategoryReorderWorksInputSchema,
   subcategoryUpdateInputSchema,
   workCreateInputSchema,
   workUpdateInputSchema,
   type Category,
   type CategoryCreateInput,
+  type CategoryReorderChildrenInput,
+  type CategoryReorderInput,
   type CategoryUpdateInput,
   type ClassGradingStructure,
   type ClassLookupInput,
   type DeleteResult,
   type GradeCategory,
   type RecordIdInput,
+  type ReorderResult,
   type Subcategory,
   type SubcategoryCreateInput,
+  type SubcategoryReorderWorksInput,
   type SubcategoryUpdateInput,
   type Work,
   type WorkCreateInput,
   type WorkUpdateInput,
 } from "../../shared/ipc";
 import { uniqueCopyName } from "../../shared/copy-name";
+import { nextSortOrder, sameIdSet, sortCategoryChildren } from "../../shared/grading-order";
 import { getClass } from "./classes";
 import { categories, classStudents, subcategories, works } from "./schema";
 import type { GradebookDatabase } from "./status";
@@ -44,7 +52,7 @@ export async function loadGradingStructure(
     .select()
     .from(categories)
     .where(eq(categories.classId, classId))
-    .orderBy(asc(categories.name));
+    .orderBy(asc(categories.sortOrder), asc(categories.id));
   const categoryIds = categoryRows.map((row) => row.id);
   const subcategoryRows =
     categoryIds.length === 0
@@ -53,7 +61,7 @@ export async function loadGradingStructure(
           .select()
           .from(subcategories)
           .where(inArray(subcategories.categoryId, categoryIds))
-          .orderBy(asc(subcategories.name));
+          .orderBy(asc(subcategories.sortOrder), asc(subcategories.id));
   const subcategoryIds = subcategoryRows.map((row) => row.id);
   const workFilters = [
     ...(categoryIds.length > 0 ? [inArray(works.categoryId, categoryIds)] : []),
@@ -66,7 +74,7 @@ export async function loadGradingStructure(
           .select()
           .from(works)
           .where(or(...workFilters))
-          .orderBy(asc(works.name));
+          .orderBy(asc(works.sortOrder), asc(works.id));
 
   return {
     categories: categoryRows.map((category) => ({
@@ -98,6 +106,7 @@ export async function createCategory(
       name: parsed.name,
       notes: parsed.notes,
       weight: parsed.weight,
+      sortOrder: await nextCategorySortOrder(db, schoolClass.id),
     })
     .returning();
   const category = created[0];
@@ -159,6 +168,7 @@ export async function createSubcategory(
       categoryId: parsed.categoryId,
       name: parsed.name,
       weight: parsed.weight,
+      sortOrder: await nextCategoryChildSortOrder(db, parsed.categoryId),
     })
     .returning();
   const subcategory = created[0];
@@ -223,6 +233,7 @@ export async function createWork(db: GradebookDatabase, input: WorkCreateInput):
       date: parsed.date ? parsed.date : null,
       maximumScore: parsed.maximumScore,
       weight: parsed.weight,
+      sortOrder: await nextWorkSortOrder(db, parsed),
     })
     .returning();
   const work = created[0];
@@ -289,6 +300,7 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
       name: uniqueCopyName(category.name, siblingNames),
       notes: category.notes,
       weight: category.weight,
+      sortOrder: await nextCategorySortOrder(db, category.classId),
     })
     .returning();
   const copy = created[0];
@@ -301,7 +313,7 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
     .select()
     .from(subcategories)
     .where(eq(subcategories.categoryId, category.id))
-    .orderBy(asc(subcategories.name));
+    .orderBy(asc(subcategories.sortOrder), asc(subcategories.id));
 
   for (const subcategory of sourceSubcategories) {
     await duplicateSubcategory(db, subcategory, copy.id, subcategory.name);
@@ -311,7 +323,7 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
     .select()
     .from(works)
     .where(eq(works.categoryId, category.id))
-    .orderBy(asc(works.name));
+    .orderBy(asc(works.sortOrder), asc(works.id));
 
   for (const work of sourceWorks) {
     await db.insert(works).values({
@@ -322,6 +334,7 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
       date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
+      sortOrder: work.sortOrder,
     });
   }
 
@@ -370,6 +383,7 @@ export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Pro
       date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
+      sortOrder: await nextWorkSortOrder(db, work),
     })
     .returning();
   const copy = created[0];
@@ -379,6 +393,91 @@ export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Pro
   }
 
   return parseStoredWork(copy);
+}
+
+export async function reorderCategories(
+  db: GradebookDatabase,
+  input: CategoryReorderInput,
+): Promise<ReorderResult> {
+  const parsed = parseCategoryReorder(input);
+  const schoolClass = await getClass(db, {
+    schoolYearName: parsed.schoolYearName,
+    internalName: parsed.internalName,
+  });
+  const currentIds = (
+    await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.classId, schoolClass.id))
+  ).map((row) => row.id);
+
+  if (!sameIdSet(currentIds, parsed.orderedIds)) {
+    throw new Error("Those categories could not be reordered.");
+  }
+
+  for (const [index, id] of parsed.orderedIds.entries()) {
+    await db.update(categories).set({ sortOrder: index }).where(eq(categories.id, id));
+  }
+
+  return { reordered: true };
+}
+
+export async function reorderCategoryChildren(
+  db: GradebookDatabase,
+  input: CategoryReorderChildrenInput,
+): Promise<ReorderResult> {
+  const parsed = parseCategoryReorderChildren(input);
+  await requireCategory(db, parsed.categoryId);
+  const subcategoryRows = await db
+    .select({ id: subcategories.id, sortOrder: subcategories.sortOrder })
+    .from(subcategories)
+    .where(eq(subcategories.categoryId, parsed.categoryId));
+  const workRows = await db
+    .select({ id: works.id, sortOrder: works.sortOrder })
+    .from(works)
+    .where(eq(works.categoryId, parsed.categoryId));
+  const current = sortCategoryChildren(subcategoryRows, workRows).map((child) => ({
+    kind: child.kind,
+    id: child.item.id,
+  }));
+
+  if (!sameCategoryChildren(current, parsed.items)) {
+    throw new Error("Those items could not be reordered.");
+  }
+
+  for (const [index, item] of parsed.items.entries()) {
+    if (item.kind === "subcategory") {
+      await db.update(subcategories).set({ sortOrder: index }).where(eq(subcategories.id, item.id));
+    } else {
+      await db.update(works).set({ sortOrder: index }).where(eq(works.id, item.id));
+    }
+  }
+
+  return { reordered: true };
+}
+
+export async function reorderSubcategoryWorks(
+  db: GradebookDatabase,
+  input: SubcategoryReorderWorksInput,
+): Promise<ReorderResult> {
+  const parsed = parseSubcategoryReorderWorks(input);
+  await requireSubcategory(db, parsed.subcategoryId);
+  const currentIds = (
+    await db
+      .select({ id: works.id })
+      .from(works)
+      .where(eq(works.subcategoryId, parsed.subcategoryId))
+  ).map((row) => row.id);
+
+  if (!sameIdSet(currentIds, parsed.orderedIds)) {
+    throw new Error("Those pieces of work could not be reordered.");
+  }
+
+  for (const [index, id] of parsed.orderedIds.entries()) {
+    await db.update(works).set({ sortOrder: index }).where(eq(works.id, id));
+  }
+
+  return { reordered: true };
 }
 
 export async function requireCategory(
@@ -463,6 +562,10 @@ async function duplicateSubcategory(
       categoryId,
       name,
       weight: source.weight,
+      sortOrder:
+        categoryId === source.categoryId
+          ? await nextCategoryChildSortOrder(db, categoryId)
+          : source.sortOrder,
     })
     .returning();
   const subcategory = created[0];
@@ -475,7 +578,7 @@ async function duplicateSubcategory(
     .select()
     .from(works)
     .where(eq(works.subcategoryId, source.id))
-    .orderBy(asc(works.name));
+    .orderBy(asc(works.sortOrder), asc(works.id));
 
   for (const work of sourceWorks) {
     await db.insert(works).values({
@@ -486,10 +589,117 @@ async function duplicateSubcategory(
       date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
+      sortOrder: work.sortOrder,
     });
   }
 
   return subcategory;
+}
+
+async function nextCategorySortOrder(db: GradebookDatabase, classId: number): Promise<number> {
+  const rows = await db
+    .select({ sortOrder: categories.sortOrder })
+    .from(categories)
+    .where(eq(categories.classId, classId));
+  return nextSortOrder(rows.map((row) => row.sortOrder));
+}
+
+async function nextCategoryChildSortOrder(
+  db: GradebookDatabase,
+  categoryId: number,
+): Promise<number> {
+  const subcategoryRows = await db
+    .select({ sortOrder: subcategories.sortOrder })
+    .from(subcategories)
+    .where(eq(subcategories.categoryId, categoryId));
+  const workRows = await db
+    .select({ sortOrder: works.sortOrder })
+    .from(works)
+    .where(eq(works.categoryId, categoryId));
+  return nextSortOrder([
+    ...subcategoryRows.map((row) => row.sortOrder),
+    ...workRows.map((row) => row.sortOrder),
+  ]);
+}
+
+async function nextWorkSortOrder(
+  db: GradebookDatabase,
+  work: { categoryId?: number | null; subcategoryId?: number | null },
+): Promise<number> {
+  if (work.categoryId != null) {
+    return nextCategoryChildSortOrder(db, work.categoryId);
+  }
+
+  if (work.subcategoryId == null) {
+    return 0;
+  }
+
+  const rows = await db
+    .select({ sortOrder: works.sortOrder })
+    .from(works)
+    .where(eq(works.subcategoryId, work.subcategoryId));
+  return nextSortOrder(rows.map((row) => row.sortOrder));
+}
+
+function sameCategoryChildren(
+  left: Array<{ kind: "subcategory" | "work"; id: number }>,
+  right: Array<{ kind: "subcategory" | "work"; id: number }>,
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  const remaining = [...right];
+
+  for (const item of left) {
+    const index = remaining.findIndex(
+      (candidate) => candidate.kind === item.kind && candidate.id === item.id,
+    );
+
+    if (index < 0) {
+      return false;
+    }
+
+    remaining.splice(index, 1);
+  }
+
+  return remaining.length === 0;
+}
+
+function parseCategoryReorder(input: CategoryReorderInput): CategoryReorderInput {
+  const result = categoryReorderInputSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message ?? "Those categories could not be reordered.");
+  }
+
+  return result.data;
+}
+
+function parseCategoryReorderChildren(
+  input: CategoryReorderChildrenInput,
+): CategoryReorderChildrenInput {
+  const result = categoryReorderChildrenInputSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message ?? "Those items could not be reordered.");
+  }
+
+  return result.data;
+}
+
+function parseSubcategoryReorderWorks(
+  input: SubcategoryReorderWorksInput,
+): SubcategoryReorderWorksInput {
+  const result = subcategoryReorderWorksInputSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new Error(
+      result.error.issues[0]?.message ?? "Those pieces of work could not be reordered.",
+    );
+  }
+
+  return result.data;
 }
 
 function parseLookupInput(input: ClassLookupInput): ClassLookupInput {

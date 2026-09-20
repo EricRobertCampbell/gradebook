@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  categoryChildToken,
+  categoryChildTokens,
+  parseCategoryChildToken,
+  sortCategoryChildren,
+} from "../../shared/grading-order";
 import type { GradeCategory, GradeSubcategory, GradeWork } from "../../shared/ipc";
+import { describeError, type DisplayError } from "../errors";
 import { parseRequiredNumber } from "../form-numbers";
 import {
   copyCategory,
@@ -12,11 +19,14 @@ import {
   deleteSubcategory,
   deleteWork,
   getGradingStructure,
+  reorderCategories,
+  reorderCategoryChildren,
+  reorderSubcategoryWorks,
   updateCategory,
   updateSubcategory,
   updateWork,
 } from "../grading";
-import { describeError, type DisplayError } from "../errors";
+import { sortableListProps } from "../sortable";
 import "./ClassAssessmentSetup.css";
 import "./common/ActionButton.css";
 import "./common/Field.css";
@@ -142,6 +152,52 @@ export function ClassAssessmentSetup({
     }
   }
 
+  async function onReorderCategories(orderedIds: Array<number>): Promise<void> {
+    setError(null);
+
+    try {
+      await reorderCategories({
+        schoolYearName,
+        internalName: classInternalName,
+        orderedIds,
+      });
+      await loadStructure();
+    } catch (caught) {
+      setError(describeError(caught, "Those categories could not be reordered."));
+    }
+  }
+
+  async function onReorderCategoryChildren(
+    categoryId: number,
+    tokens: Array<string>,
+  ): Promise<void> {
+    setError(null);
+
+    try {
+      await reorderCategoryChildren({
+        categoryId,
+        items: tokens.map(parseCategoryChildToken),
+      });
+      await loadStructure();
+    } catch (caught) {
+      setError(describeError(caught, "Those items could not be reordered."));
+    }
+  }
+
+  async function onReorderSubcategoryWorks(
+    subcategoryId: number,
+    orderedIds: Array<number>,
+  ): Promise<void> {
+    setError(null);
+
+    try {
+      await reorderSubcategoryWorks({ subcategoryId, orderedIds });
+      await loadStructure();
+    } catch (caught) {
+      setError(describeError(caught, "Those pieces of work could not be reordered."));
+    }
+  }
+
   async function onConfirmDelete(): Promise<void> {
     if (!pendingDelete) {
       return;
@@ -189,7 +245,16 @@ export function ClassAssessmentSetup({
 
       <ul className="grading-tree">
         {categories.map((category) => (
-          <li key={category.id} className="grading-tree-group">
+          <li
+            key={category.id}
+            className="grading-tree-group"
+            {...sortableListProps(
+              "categories",
+              String(category.id),
+              categories.map((item) => String(item.id)),
+              (orderedIds) => void onReorderCategories(orderedIds.map((id) => Number(id))),
+            )}
+          >
             <div className="record-item">
               <div className="grading-tree-label">
                 <strong>{category.name}</strong>
@@ -227,74 +292,105 @@ export function ClassAssessmentSetup({
               </button>
             </div>
             <ul className="grading-tree grading-tree--nested">
-              {category.works.map((work) => (
-                <WorkSetupRow
-                  key={work.id}
-                  work={work}
-                  disabled={copying || saving || deleting}
-                  onEdit={() => openEditor({ kind: "edit-work", work })}
-                  onCopy={() => void onCopy("work", work.id)}
-                  onDelete={() => setPendingDelete({ kind: "work", item: work })}
-                />
-              ))}
-              {category.subcategories.map((subcategory) => (
-                <li key={subcategory.id} className="grading-tree-group">
-                  <div className="record-item">
-                    <div className="grading-tree-label">
-                      <strong>{subcategory.name}</strong>
-                      <span className="record-button-meta">Weight {subcategory.weight}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Edit ${subcategory.name}`}
+              {sortCategoryChildren(category.subcategories, category.works).map((child) => {
+                if (child.kind === "work") {
+                  return (
+                    <WorkSetupRow
+                      key={`work-${child.item.id}`}
+                      work={child.item}
                       disabled={copying || saving || deleting}
-                      onClick={() => openEditor({ kind: "edit-subcategory", subcategory })}
-                    >
-                      <PencilIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button"
-                      aria-label={`Copy ${subcategory.name}`}
-                      disabled={copying || saving || deleting}
-                      onClick={() => void onCopy("subcategory", subcategory.id)}
-                    >
-                      <CopyIcon />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-button icon-button--danger"
-                      aria-label={`Delete ${subcategory.name}`}
-                      disabled={copying || saving || deleting}
-                      onClick={() => setPendingDelete({ kind: "subcategory", item: subcategory })}
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                  <ul className="grading-tree grading-tree--nested">
-                    {subcategory.works.map((work) => (
-                      <WorkSetupRow
-                        key={work.id}
-                        work={work}
-                        disabled={copying || saving || deleting}
-                        onEdit={() => openEditor({ kind: "edit-work", work })}
-                        onCopy={() => void onCopy("work", work.id)}
-                        onDelete={() => setPendingDelete({ kind: "work", item: work })}
-                      />
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    className="action-button action-button--secondary grading-tree-add"
-                    onClick={() =>
-                      openEditor({ kind: "create-work", subcategoryId: subcategory.id })
-                    }
+                      sortable={sortableListProps(
+                        `category-children-${category.id}`,
+                        categoryChildToken("work", child.item.id),
+                        categoryChildTokens(category.subcategories, category.works),
+                        (tokens) => void onReorderCategoryChildren(category.id, tokens),
+                      )}
+                      onEdit={() => openEditor({ kind: "edit-work", work: child.item })}
+                      onCopy={() => void onCopy("work", child.item.id)}
+                      onDelete={() => setPendingDelete({ kind: "work", item: child.item })}
+                    />
+                  );
+                }
+
+                const subcategory = child.item;
+                return (
+                  <li
+                    key={`subcategory-${subcategory.id}`}
+                    className="grading-tree-group"
+                    {...sortableListProps(
+                      `category-children-${category.id}`,
+                      categoryChildToken("subcategory", subcategory.id),
+                      categoryChildTokens(category.subcategories, category.works),
+                      (tokens) => void onReorderCategoryChildren(category.id, tokens),
+                    )}
                   >
-                    Add work
-                  </button>
-                </li>
-              ))}
+                    <div className="record-item">
+                      <div className="grading-tree-label">
+                        <strong>{subcategory.name}</strong>
+                        <span className="record-button-meta">Weight {subcategory.weight}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Edit ${subcategory.name}`}
+                        disabled={copying || saving || deleting}
+                        onClick={() => openEditor({ kind: "edit-subcategory", subcategory })}
+                      >
+                        <PencilIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Copy ${subcategory.name}`}
+                        disabled={copying || saving || deleting}
+                        onClick={() => void onCopy("subcategory", subcategory.id)}
+                      >
+                        <CopyIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button icon-button--danger"
+                        aria-label={`Delete ${subcategory.name}`}
+                        disabled={copying || saving || deleting}
+                        onClick={() => setPendingDelete({ kind: "subcategory", item: subcategory })}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
+                    <ul className="grading-tree grading-tree--nested">
+                      {subcategory.works.map((work) => (
+                        <WorkSetupRow
+                          key={work.id}
+                          work={work}
+                          disabled={copying || saving || deleting}
+                          sortable={sortableListProps(
+                            `subcategory-works-${subcategory.id}`,
+                            String(work.id),
+                            subcategory.works.map((item) => String(item.id)),
+                            (orderedIds) =>
+                              void onReorderSubcategoryWorks(
+                                subcategory.id,
+                                orderedIds.map((id) => Number(id)),
+                              ),
+                          )}
+                          onEdit={() => openEditor({ kind: "edit-work", work })}
+                          onCopy={() => void onCopy("work", work.id)}
+                          onDelete={() => setPendingDelete({ kind: "work", item: work })}
+                        />
+                      ))}
+                    </ul>
+                    <button
+                      type="button"
+                      className="action-button action-button--secondary grading-tree-add"
+                      onClick={() =>
+                        openEditor({ kind: "create-work", subcategoryId: subcategory.id })
+                      }
+                    >
+                      Add work
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <div className="grading-tree-add-row">
               <button
@@ -407,18 +503,20 @@ export function ClassAssessmentSetup({
 function WorkSetupRow({
   work,
   disabled,
+  sortable,
   onEdit,
   onCopy,
   onDelete,
 }: {
   work: GradeWork;
   disabled: boolean;
+  sortable?: ReturnType<typeof sortableListProps>;
   onEdit: () => void;
   onCopy: () => void;
   onDelete: () => void;
 }) {
   return (
-    <li className="record-item">
+    <li className="record-item" {...sortable}>
       <div className="grading-tree-label">
         <strong>{work.name}</strong>
         <span className="record-button-meta">

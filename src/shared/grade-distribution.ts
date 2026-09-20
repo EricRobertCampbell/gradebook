@@ -4,6 +4,7 @@ import {
   median as statisticsMedian,
 } from "simple-statistics";
 import { assessmentCountsTowardAverage } from "./grades";
+import { sortCategoryChildren } from "./grading-order";
 import type {
   ClassGradebook,
   GradeCategory,
@@ -58,33 +59,26 @@ export type CategoryScopeOption = {
 };
 
 export function listCategoryScopes(category: GradeCategory): Array<CategoryScopeOption> {
-  return [
-    ...category.subcategories.map((subcategory) => ({
-      kind: "subcategory" as const,
-      id: subcategory.id,
-      label: subcategory.name,
-    })),
-    ...category.works.map((work) => ({
-      kind: "work" as const,
-      id: work.id,
-      label: work.name,
-    })),
-  ];
+  return sortCategoryChildren(category.subcategories, category.works).map((child) =>
+    child.kind === "work"
+      ? { kind: "work" as const, id: child.item.id, label: child.item.name }
+      : { kind: "subcategory" as const, id: child.item.id, label: child.item.name },
+  );
 }
 
 export function listClassWorks(categories: Array<GradeCategory>): Array<ClassWorkOption> {
-  return categories.flatMap((category) => [
-    ...category.subcategories.flatMap((subcategory) =>
-      subcategory.works.map((work) => ({
+  return categories.flatMap((category) =>
+    sortCategoryChildren(category.subcategories, category.works).flatMap((child) => {
+      if (child.kind === "work") {
+        return [{ id: child.item.id, label: `${category.name} · ${child.item.name}` }];
+      }
+
+      return child.item.works.map((work) => ({
         id: work.id,
-        label: `${category.name} · ${subcategory.name} · ${work.name}`,
-      })),
-    ),
-    ...category.works.map((work) => ({
-      id: work.id,
-      label: `${category.name} · ${work.name}`,
-    })),
-  ]);
+        label: `${category.name} · ${child.item.name} · ${work.name}`,
+      }));
+    }),
+  );
 }
 
 export function findClassWork(categories: Array<GradeCategory>, workId: number): GradeWork | null {

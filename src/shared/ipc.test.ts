@@ -307,4 +307,45 @@ describe("grading contracts", () => {
       students: [],
     });
   });
+
+  it("binds the reorder channels to the shared input and output schemas", () => {
+    expect(
+      ipcContracts[ipcChannels.categoryReorder].input.parse({
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+        orderedIds: [2, 1],
+      }),
+    ).toEqual({
+      schoolYearName: "2024-2025",
+      internalName: "sci-9",
+      orderedIds: [2, 1],
+    });
+    expect(
+      ipcContracts[ipcChannels.categoryReorderChildren].input.parse({
+        categoryId: 4,
+        items: [
+          { kind: "work", id: 9 },
+          { kind: "subcategory", id: 3 },
+        ],
+      }),
+    ).toEqual({
+      categoryId: 4,
+      items: [
+        { kind: "work", id: 9 },
+        { kind: "subcategory", id: 3 },
+      ],
+    });
+    expect(
+      ipcContracts[ipcChannels.subcategoryReorderWorks].input.parse({
+        subcategoryId: 3,
+        orderedIds: [8, 7],
+      }),
+    ).toEqual({
+      subcategoryId: 3,
+      orderedIds: [8, 7],
+    });
+    expect(ipcContracts[ipcChannels.categoryReorder].output.parse({ reordered: true })).toEqual({
+      reordered: true,
+    });
+  });
 });

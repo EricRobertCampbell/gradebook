@@ -42,12 +42,15 @@ const gradebookApi: GradebookApi = {
     update: (input) => invoke(ipcChannels.categoryUpdate, input),
     delete: (input) => invoke(ipcChannels.categoryDelete, input),
     copy: (input) => invoke(ipcChannels.categoryCopy, input),
+    reorder: (input) => invoke(ipcChannels.categoryReorder, input),
+    reorderChildren: (input) => invoke(ipcChannels.categoryReorderChildren, input),
   },
   subcategories: {
     create: (input) => invoke(ipcChannels.subcategoryCreate, input),
     update: (input) => invoke(ipcChannels.subcategoryUpdate, input),
     delete: (input) => invoke(ipcChannels.subcategoryDelete, input),
     copy: (input) => invoke(ipcChannels.subcategoryCopy, input),
+    reorderWorks: (input) => invoke(ipcChannels.subcategoryReorderWorks, input),
   },
   works: {
     create: (input) => invoke(ipcChannels.workCreate, input),

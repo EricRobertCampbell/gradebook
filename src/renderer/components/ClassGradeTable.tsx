@@ -10,6 +10,12 @@ import {
   mean,
   parseSpecialMark,
 } from "../../shared/grades";
+import {
+  categoryChildToken,
+  categoryChildTokens,
+  parseCategoryChildToken,
+  sortCategoryChildren,
+} from "../../shared/grading-order";
 import type {
   Adjustment,
   ClassGradebook,
@@ -23,13 +29,20 @@ import { personDisplayName } from "../../shared/person-name";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseRequiredNumber } from "../form-numbers";
 import { handleGradeMarkKeyDown } from "../grade-mark-navigation";
-import { deleteAssessment, upsertAssessment } from "../grading";
+import {
+  deleteAssessment,
+  reorderCategories,
+  reorderCategoryChildren,
+  reorderSubcategoryWorks,
+  upsertAssessment,
+} from "../grading";
 import {
   classWorkDataPath,
   studentClassDataPath,
   studentClassReportPath,
   studentPath,
 } from "../paths";
+import { sortableListProps } from "../sortable";
 import "./ClassGradeTable.css";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import { ChevronIcon } from "./common/icons/ChevronIcon";
@@ -76,6 +89,46 @@ export function ClassGradeTable({
   );
   const headerRows = 1 + (showSubcategoryRow ? 1 : 0) + (showWorkRow ? 1 : 0);
 
+  async function persistCategoryOrder(orderedIds: Array<number>): Promise<void> {
+    setTableError(null);
+    try {
+      await reorderCategories({
+        schoolYearName,
+        internalName: classInternalName,
+        orderedIds,
+      });
+      await onChanged();
+    } catch (caught) {
+      setTableError(describeError(caught, "Those categories could not be reordered."));
+    }
+  }
+
+  async function persistCategoryChildren(categoryId: number, tokens: Array<string>): Promise<void> {
+    setTableError(null);
+    try {
+      await reorderCategoryChildren({
+        categoryId,
+        items: tokens.map(parseCategoryChildToken),
+      });
+      await onChanged();
+    } catch (caught) {
+      setTableError(describeError(caught, "Those items could not be reordered."));
+    }
+  }
+
+  async function persistSubcategoryWorks(
+    subcategoryId: number,
+    orderedIds: Array<number>,
+  ): Promise<void> {
+    setTableError(null);
+    try {
+      await reorderSubcategoryWorks({ subcategoryId, orderedIds });
+      await onChanged();
+    } catch (caught) {
+      setTableError(describeError(caught, "Those pieces of work could not be reordered."));
+    }
+  }
+
   return (
     <div className="grade-table-wrap">
       <ErrorDisplay error={tableError} />
@@ -119,6 +172,12 @@ export function ClassGradeTable({
                       collapsedSubcategories,
                     )}
                     rowSpan={collapsed ? headerRows : undefined}
+                    {...sortableListProps(
+                      "categories",
+                      String(category.id),
+                      gradebook.categories.map((item) => String(item.id)),
+                      (tokens) => void persistCategoryOrder(tokens.map((id) => Number(id))),
+                    )}
                   >
                     <HeaderLabel
                       name={category.name}
@@ -189,6 +248,9 @@ export function ClassGradeTable({
                         })
                       }
                       onEditWork={(work) => setStructureEditor({ kind: "work", work })}
+                      onReorderChildren={(tokens) =>
+                        void persistCategoryChildren(category.id, tokens)
+                      }
                     />
                   ),
                 )}
@@ -201,31 +263,52 @@ export function ClassGradeTable({
                     return [];
                   }
 
-                  return category.subcategories.flatMap((subcategory) => {
-                    if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
-                      return [];
-                    }
+                  return sortCategoryChildren(category.subcategories, category.works).flatMap(
+                    (child) => {
+                      if (child.kind === "work") {
+                        return [];
+                      }
 
-                    return [
-                      ...subcategory.works.map((work) => (
-                        <th key={work.id} className="grade-table-work" colSpan={2}>
-                          <HeaderLabel
-                            name={work.name}
-                            description={work.notes}
-                            detail={workHeaderDetail(work)}
-                            weight={work.weight}
-                            onEdit={() => setStructureEditor({ kind: "work", work })}
-                            editLabel={`Edit ${work.name}`}
-                            dataHref={classWorkDataPath(classId, work.id)}
-                            dataLabel={`Data for ${work.name}`}
-                          />
-                        </th>
-                      )),
-                      <th key={`sub-${subcategory.id}`} className="grade-table-summary">
-                        %
-                      </th>,
-                    ];
-                  });
+                      const subcategory = child.item;
+                      if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+                        return [];
+                      }
+
+                      return [
+                        ...subcategory.works.map((work) => (
+                          <th
+                            key={work.id}
+                            className="grade-table-work"
+                            colSpan={2}
+                            {...sortableListProps(
+                              `subcategory-works-${subcategory.id}`,
+                              String(work.id),
+                              subcategory.works.map((item) => String(item.id)),
+                              (tokens) =>
+                                void persistSubcategoryWorks(
+                                  subcategory.id,
+                                  tokens.map((id) => Number(id)),
+                                ),
+                            )}
+                          >
+                            <HeaderLabel
+                              name={work.name}
+                              description={work.notes}
+                              detail={workHeaderDetail(work)}
+                              weight={work.weight}
+                              onEdit={() => setStructureEditor({ kind: "work", work })}
+                              editLabel={`Edit ${work.name}`}
+                              dataHref={classWorkDataPath(classId, work.id)}
+                              dataLabel={`Data for ${work.name}`}
+                            />
+                          </th>
+                        )),
+                        <th key={`sub-${subcategory.id}`} className="grade-table-summary">
+                          %
+                        </th>,
+                      ];
+                    },
+                  );
                 })}
               </tr>
             ) : null}
@@ -286,6 +369,7 @@ function CategorySubheaders({
   onEditSubcategory,
   onAddWork,
   onEditWork,
+  onReorderChildren,
 }: {
   classId: number;
   category: GradeCategory;
@@ -295,10 +379,43 @@ function CategorySubheaders({
   onEditSubcategory: (subcategory: GradeSubcategory) => void;
   onAddWork: (subcategory: GradeSubcategory) => void;
   onEditWork: (work: GradeWork) => void;
+  onReorderChildren: (tokens: Array<string>) => void;
 }) {
+  const childTokens = categoryChildTokens(category.subcategories, category.works);
+
   return (
     <>
-      {category.subcategories.map((subcategory) => {
+      {sortCategoryChildren(category.subcategories, category.works).map((child) => {
+        if (child.kind === "work") {
+          const work = child.item;
+          return (
+            <th
+              key={`category-work-${work.id}`}
+              className="grade-table-work grade-table-header-bottom"
+              colSpan={2}
+              rowSpan={subcategoryRowSpan}
+              {...sortableListProps(
+                `category-children-${category.id}`,
+                categoryChildToken("work", work.id),
+                childTokens,
+                onReorderChildren,
+              )}
+            >
+              <HeaderLabel
+                name={work.name}
+                description={work.notes}
+                detail={workHeaderDetail(work)}
+                weight={work.weight}
+                onEdit={() => onEditWork(work)}
+                editLabel={`Edit ${work.name}`}
+                dataHref={classWorkDataPath(classId, work.id)}
+                dataLabel={`Data for ${work.name}`}
+              />
+            </th>
+          );
+        }
+
+        const subcategory = child.item;
         const collapsed = subcategoryIsCollapsed(subcategory, collapsedSubcategories);
         const canCollapse = canCollapseSubcategory(subcategory);
 
@@ -308,6 +425,12 @@ function CategorySubheaders({
             className={collapsed ? "grade-table-header-bottom" : undefined}
             colSpan={collapsed ? 1 : subcategory.works.length * 2 + 1}
             rowSpan={collapsed ? subcategoryRowSpan : undefined}
+            {...sortableListProps(
+              `category-children-${category.id}`,
+              categoryChildToken("subcategory", subcategory.id),
+              childTokens,
+              onReorderChildren,
+            )}
           >
             <HeaderLabel
               name={subcategory.name}
@@ -329,25 +452,6 @@ function CategorySubheaders({
           </th>
         );
       })}
-      {category.works.map((work) => (
-        <th
-          key={`category-work-${work.id}`}
-          className="grade-table-work grade-table-header-bottom"
-          colSpan={2}
-          rowSpan={subcategoryRowSpan}
-        >
-          <HeaderLabel
-            name={work.name}
-            description={work.notes}
-            detail={workHeaderDetail(work)}
-            weight={work.weight}
-            onEdit={() => onEditWork(work)}
-            editLabel={`Edit ${work.name}`}
-            dataHref={classWorkDataPath(classId, work.id)}
-            dataLabel={`Data for ${work.name}`}
-          />
-        </th>
-      ))}
       <th className="grade-table-summary" rowSpan={subcategoryRowSpan}>
         Unit
       </th>
@@ -486,7 +590,23 @@ function AverageCategoryCells({
 }) {
   return (
     <>
-      {category.subcategories.map((subcategory, subcategoryIndex) => {
+      {sortCategoryChildren(category.subcategories, category.works).map((child) => {
+        if (child.kind === "work") {
+          const workIndex = category.works.findIndex((work) => work.id === child.item.id);
+          const workAverage = categoryAverage?.works[workIndex];
+          return (
+            <AverageWorkCells
+              key={child.item.id}
+              workName={child.item.name}
+              percent={workAverage?.percent ?? null}
+            />
+          );
+        }
+
+        const subcategory = child.item;
+        const subcategoryIndex = category.subcategories.findIndex(
+          (item) => item.id === subcategory.id,
+        );
         const subcategoryAverage = categoryAverage?.subcategories[subcategoryIndex];
 
         if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
@@ -502,17 +622,6 @@ function AverageCategoryCells({
             key={subcategory.id}
             subcategory={subcategory}
             subcategoryAverage={subcategoryAverage}
-          />
-        );
-      })}
-      {category.works.map((work, workIndex) => {
-        const workAverage = categoryAverage?.works[workIndex];
-
-        return (
-          <AverageWorkCells
-            key={work.id}
-            workName={work.name}
-            percent={workAverage?.percent ?? null}
           />
         );
       })}
@@ -656,7 +765,34 @@ function CategoryCells({
 
   return (
     <>
-      {category.subcategories.map((subcategory, subcategoryIndex) => {
+      {sortCategoryChildren(category.subcategories, category.works).map((child) => {
+        if (child.kind === "work") {
+          const workIndex = category.works.findIndex((work) => work.id === child.item.id);
+          const work = child.item;
+          const workGrade = workGrades[workIndex] ?? {
+            workId: work.id,
+            assessment: null,
+            adjustments: [],
+            percent: null,
+          };
+
+          return (
+            <MarkCells
+              key={work.id}
+              work={work}
+              workGrade={workGrade}
+              studentId={studentId}
+              onChanged={onChanged}
+              onError={onError}
+              onOpenAssessment={() => onOpenAssessment(work, workGrade)}
+            />
+          );
+        }
+
+        const subcategory = child.item;
+        const subcategoryIndex = category.subcategories.findIndex(
+          (item) => item.id === subcategory.id,
+        );
         const subcategoryGrade = subcategoryGrades[subcategoryIndex];
 
         return (
@@ -670,26 +806,6 @@ function CategoryCells({
             onChanged={onChanged}
             onError={onError}
             onOpenAssessment={onOpenAssessment}
-          />
-        );
-      })}
-      {category.works.map((work, workIndex) => {
-        const workGrade = workGrades[workIndex] ?? {
-          workId: work.id,
-          assessment: null,
-          adjustments: [],
-          percent: null,
-        };
-
-        return (
-          <MarkCells
-            key={work.id}
-            work={work}
-            workGrade={workGrade}
-            studentId={studentId}
-            onChanged={onChanged}
-            onError={onError}
-            onOpenAssessment={() => onOpenAssessment(work, workGrade)}
           />
         );
       })}

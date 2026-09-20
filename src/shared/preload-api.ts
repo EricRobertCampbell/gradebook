@@ -12,6 +12,8 @@ import type {
   AssessmentUpsertInput,
   Category,
   CategoryCreateInput,
+  CategoryReorderChildrenInput,
+  CategoryReorderInput,
   CategoryUpdateInput,
   ClassGradebook,
   ClassGradingStructure,
@@ -23,6 +25,7 @@ import type {
   DeleteResult,
   EnrolledClass,
   RecordIdInput,
+  ReorderResult,
   Parent,
   ParentCreateInput,
   ParentDeleteInput,
@@ -36,6 +39,7 @@ import type {
   StudentUpdateInput,
   Subcategory,
   SubcategoryCreateInput,
+  SubcategoryReorderWorksInput,
   SubcategoryUpdateInput,
   Work,
   WorkCreateInput,
@@ -75,12 +79,15 @@ export type GradebookApi = {
     update: (input: CategoryUpdateInput) => Promise<Category>;
     delete: (input: RecordIdInput) => Promise<DeleteResult>;
     copy: (input: RecordIdInput) => Promise<Category>;
+    reorder: (input: CategoryReorderInput) => Promise<ReorderResult>;
+    reorderChildren: (input: CategoryReorderChildrenInput) => Promise<ReorderResult>;
   };
   subcategories: {
     create: (input: SubcategoryCreateInput) => Promise<Subcategory>;
     update: (input: SubcategoryUpdateInput) => Promise<Subcategory>;
     delete: (input: RecordIdInput) => Promise<DeleteResult>;
     copy: (input: RecordIdInput) => Promise<Subcategory>;
+    reorderWorks: (input: SubcategoryReorderWorksInput) => Promise<ReorderResult>;
   };
   works: {
     create: (input: WorkCreateInput) => Promise<Work>;

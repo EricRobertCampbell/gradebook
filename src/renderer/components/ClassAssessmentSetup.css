@@ -37,8 +37,12 @@
   margin-top: 0.35rem;
 }
 
-.grading-tree-add-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.grading-tree-group,
+.record-item[draggable="true"] {
+  cursor: grab;
+}
+
+.grading-tree-group:active,
+.record-item[draggable="true"]:active {
+  cursor: grabbing;
 }

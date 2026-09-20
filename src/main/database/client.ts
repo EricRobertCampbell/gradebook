@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { ensureDatabaseStatusMetadata, type GradebookDatabase } from "./status";
+import { ensureStructureSortOrder } from "./structure-sort-order";
 
 export type InitialiseDatabaseOptions = {
   databasePath: string;
@@ -32,6 +33,7 @@ export function initialiseDatabase(options: InitialiseDatabaseOptions): Initiali
 
   migrate(db, { migrationsFolder: options.migrationsFolder });
   ensureWorkDateColumn(sqlite);
+  ensureStructureSortOrder(sqlite);
 
   return { db, sqlite };
 }

@@ -71,6 +71,10 @@
   border-color: color-mix(in srgb, var(--ink-light) 42%, transparent);
 }
 
+.grade-table thead th[draggable="true"] {
+  cursor: grab;
+}
+
 .grade-table thead tr:last-child th,
 .grade-table thead .grade-table-header-bottom {
   box-shadow: inset 0 -3px 0 var(--colour-primary);

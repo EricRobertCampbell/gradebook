@@ -198,6 +198,9 @@ function registerDatabaseIpc(): void {
   registerIpcHandler(ipcChannels.workUpdate, grading.updateWork);
   registerIpcHandler(ipcChannels.workDelete, grading.deleteWork);
   registerIpcHandler(ipcChannels.workCopy, grading.copyWork);
+  registerIpcHandler(ipcChannels.categoryReorder, grading.reorderCategories);
+  registerIpcHandler(ipcChannels.categoryReorderChildren, grading.reorderCategoryChildren);
+  registerIpcHandler(ipcChannels.subcategoryReorderWorks, grading.reorderSubcategoryWorks);
   registerIpcHandler(ipcChannels.assessmentUpsert, grading.upsertAssessment);
   registerIpcHandler(ipcChannels.assessmentDelete, grading.deleteAssessment);
   registerIpcHandler(ipcChannels.adjustmentCreate, grading.createAdjustment);

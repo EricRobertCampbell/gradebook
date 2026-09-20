@@ -78,6 +78,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     name,
     notes,
     weight,
+    sortOrder: 0,
   }),
   updateCategory: async ({ id, name, notes, weight }) => ({
     id,
@@ -85,6 +86,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     name,
     notes,
     weight,
+    sortOrder: 0,
   }),
   deleteCategory: async () => ({ deleted: true }),
   copyCategory: async ({ id }) => ({
@@ -93,18 +95,21 @@ const unusedHandlers: DevelopmentApiHandlers = {
     name: "Copy of Unit",
     notes: "",
     weight: 1,
+    sortOrder: 0,
   }),
   createSubcategory: async ({ categoryId, name, weight }) => ({
     id: 1,
     categoryId,
     name,
     weight,
+    sortOrder: 0,
   }),
   updateSubcategory: async ({ id, name, weight }) => ({
     id,
     categoryId: 1,
     name,
     weight,
+    sortOrder: 0,
   }),
   deleteSubcategory: async () => ({ deleted: true }),
   copySubcategory: async ({ id }) => ({
@@ -112,6 +117,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     categoryId: 1,
     name: "Copy of Quiz",
     weight: 1,
+    sortOrder: 0,
   }),
   createWork: async ({ categoryId, subcategoryId, name, notes, date, maximumScore, weight }) => ({
     id: 1,
@@ -122,6 +128,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     date: date ?? null,
     maximumScore,
     weight,
+    sortOrder: 0,
   }),
   updateWork: async ({ id, name, notes, date, maximumScore, weight }) => ({
     id,
@@ -132,6 +139,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     date: date ?? null,
     maximumScore,
     weight,
+    sortOrder: 0,
   }),
   deleteWork: async () => ({ deleted: true }),
   copyWork: async ({ id }) => ({
@@ -143,7 +151,11 @@ const unusedHandlers: DevelopmentApiHandlers = {
     date: null,
     maximumScore: 10,
     weight: 1,
+    sortOrder: 0,
   }),
+  reorderCategories: async () => ({ reordered: true }),
+  reorderCategoryChildren: async () => ({ reordered: true }),
+  reorderSubcategoryWorks: async () => ({ reordered: true }),
   upsertAssessment: async ({ workId, studentId, score, date, weight, notes, status }) => ({
     id: 1,
     workId,
@@ -600,6 +612,7 @@ describe("handleDevelopmentApiRequest", () => {
           name: "Copy of Unit",
           notes: "",
           weight: 1,
+          sortOrder: 0,
         }),
       }),
     ).resolves.toEqual({
@@ -610,6 +623,7 @@ describe("handleDevelopmentApiRequest", () => {
         name: "Copy of Unit",
         notes: "",
         weight: 1,
+        sortOrder: 0,
       },
     });
   });
