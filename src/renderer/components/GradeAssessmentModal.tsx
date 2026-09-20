@@ -176,9 +176,12 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
             suffix={<span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>}
           />
           <TextField
-            label="Date"
+            label="Date (YYYY-MM-DD)"
             required
-            type="date"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            autoComplete="off"
+            spellCheck={false}
             value={assessmentFields.date}
             onChange={(event) =>
               setAssessmentFields({ ...assessmentFields, date: event.target.value })

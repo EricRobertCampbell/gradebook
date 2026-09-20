@@ -247,6 +247,28 @@ describe("student and parent contracts", () => {
 });
 
 describe("grading contracts", () => {
+  it("accepts an optional work date", () => {
+    const base = {
+      subcategoryId: 1,
+      name: "Quiz",
+      notes: "",
+      maximumScore: 10,
+      weight: 1,
+    };
+
+    expect(ipcContracts[ipcChannels.workCreate].input.parse(base).date).toBeUndefined();
+    expect(
+      ipcContracts[ipcChannels.workCreate].input.parse({ ...base, date: "2026-09-20" }).date,
+    ).toBe("2026-09-20");
+    expect(ipcContracts[ipcChannels.workCreate].input.parse({ ...base, date: "" }).date).toBe("");
+    expect(
+      ipcContracts[ipcChannels.workCreate].input.parse({ ...base, date: null }).date,
+    ).toBeNull();
+    expect(() =>
+      ipcContracts[ipcChannels.workCreate].input.parse({ ...base, date: "20-09-2026" }),
+    ).toThrow();
+  });
+
   it("requires a percent or raw change on an adjustment", () => {
     expect(
       ipcContracts[ipcChannels.adjustmentCreate].input.parse({

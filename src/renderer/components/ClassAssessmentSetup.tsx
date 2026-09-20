@@ -53,6 +53,7 @@ type PendingDelete =
 type EditorFields = {
   name: string;
   notes: string;
+  date: string;
   weight: string;
   maximumScore: string;
 };
@@ -354,6 +355,18 @@ export function ClassAssessmentSetup({
               disabled={saving}
             />
           ) : null}
+          {showsMaximumScore(editor) ? (
+            <TextField
+              label="Date (YYYY-MM-DD)"
+              type="text"
+              placeholder="YYYY-MM-DD"
+              autoComplete="off"
+              spellCheck={false}
+              value={fields.date}
+              onChange={(event) => setFields({ ...fields, date: event.target.value })}
+              disabled={saving}
+            />
+          ) : null}
           <TextField
             label="Weight"
             required
@@ -410,6 +423,7 @@ function WorkSetupRow({
         <strong>{work.name}</strong>
         <span className="record-button-meta">
           Maximum {work.maximumScore} · Weight {work.weight}
+          {work.date ? ` · ${work.date}` : ""}
           {work.notes ? ` · ${work.notes}` : ""}
         </span>
       </div>
@@ -445,7 +459,7 @@ function WorkSetupRow({
 }
 
 function emptyFields(): EditorFields {
-  return { name: "", notes: "", weight: "1", maximumScore: "" };
+  return { name: "", notes: "", date: "", weight: "1", maximumScore: "" };
 }
 
 function fieldsForEditor(editor: Editor): EditorFields {
@@ -453,6 +467,7 @@ function fieldsForEditor(editor: Editor): EditorFields {
     return {
       name: editor.category.name,
       notes: editor.category.notes,
+      date: "",
       weight: String(editor.category.weight),
       maximumScore: "",
     };
@@ -462,6 +477,7 @@ function fieldsForEditor(editor: Editor): EditorFields {
     return {
       name: editor.subcategory.name,
       notes: "",
+      date: "",
       weight: String(editor.subcategory.weight),
       maximumScore: "",
     };
@@ -471,6 +487,7 @@ function fieldsForEditor(editor: Editor): EditorFields {
     return {
       name: editor.work.name,
       notes: editor.work.notes,
+      date: editor.work.date ?? "",
       weight: String(editor.work.weight),
       maximumScore: String(editor.work.maximumScore),
     };
@@ -480,6 +497,7 @@ function fieldsForEditor(editor: Editor): EditorFields {
     return {
       name: "",
       notes: "",
+      date: "",
       weight: "1",
       maximumScore: "",
     };
@@ -603,6 +621,7 @@ async function saveEditor(
         : { subcategoryId: editor.subcategoryId }),
       name,
       notes: fields.notes,
+      date: fields.date,
       maximumScore,
       weight,
     });
@@ -613,6 +632,7 @@ async function saveEditor(
     id: editor.work.id,
     name,
     notes: fields.notes,
+    date: fields.date,
     maximumScore,
     weight,
   });

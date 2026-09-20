@@ -220,6 +220,7 @@ export async function createWork(db: GradebookDatabase, input: WorkCreateInput):
       subcategoryId: parsed.subcategoryId ?? null,
       name: parsed.name,
       notes: parsed.notes,
+      date: parsed.date ? parsed.date : null,
       maximumScore: parsed.maximumScore,
       weight: parsed.weight,
     })
@@ -241,6 +242,7 @@ export async function updateWork(db: GradebookDatabase, input: WorkUpdateInput):
     .set({
       name: parsed.name,
       notes: parsed.notes,
+      date: parsed.date ? parsed.date : null,
       maximumScore: parsed.maximumScore,
       weight: parsed.weight,
     })
@@ -255,7 +257,10 @@ export async function updateWork(db: GradebookDatabase, input: WorkUpdateInput):
   return parseStoredWork(work);
 }
 
-export async function deleteWork(db: GradebookDatabase, input: RecordIdInput): Promise<DeleteResult> {
+export async function deleteWork(
+  db: GradebookDatabase,
+  input: RecordIdInput,
+): Promise<DeleteResult> {
   const workId = parseRecordId(input, "That work was not found.").id;
   const deleted = await db.delete(works).where(eq(works.id, workId)).returning();
 
@@ -267,9 +272,15 @@ export async function deleteWork(db: GradebookDatabase, input: RecordIdInput): P
 }
 
 export async function copyCategory(db: GradebookDatabase, input: RecordIdInput): Promise<Category> {
-  const category = await requireCategory(db, parseRecordId(input, "That category was not found.").id);
+  const category = await requireCategory(
+    db,
+    parseRecordId(input, "That category was not found.").id,
+  );
   const siblingNames = (
-    await db.select({ name: categories.name }).from(categories).where(eq(categories.classId, category.classId))
+    await db
+      .select({ name: categories.name })
+      .from(categories)
+      .where(eq(categories.classId, category.classId))
   ).map((row) => row.name);
   const created = await db
     .insert(categories)
@@ -308,6 +319,7 @@ export async function copyCategory(db: GradebookDatabase, input: RecordIdInput):
       subcategoryId: null,
       name: work.name,
       notes: work.notes,
+      date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
     });
@@ -355,6 +367,7 @@ export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Pro
       subcategoryId: work.subcategoryId,
       name: uniqueCopyName(work.name, siblingNames),
       notes: work.notes,
+      date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
     })
@@ -368,7 +381,10 @@ export async function copyWork(db: GradebookDatabase, input: RecordIdInput): Pro
   return parseStoredWork(copy);
 }
 
-export async function requireCategory(db: GradebookDatabase, categoryId: number): Promise<Category> {
+export async function requireCategory(
+  db: GradebookDatabase,
+  categoryId: number,
+): Promise<Category> {
   const rows = await db.select().from(categories).where(eq(categories.id, categoryId)).limit(1);
   const category = rows[0];
 
@@ -467,6 +483,7 @@ async function duplicateSubcategory(
       subcategoryId: subcategory.id,
       name: work.name,
       notes: work.notes,
+      date: work.date,
       maximumScore: work.maximumScore,
       weight: work.weight,
     });

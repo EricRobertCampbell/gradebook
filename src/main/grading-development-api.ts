@@ -338,10 +338,7 @@ async function handleRecordGradingRoute(
   return undefined;
 }
 
-function idPath(
-  pathname: string,
-  prefix: string,
-): { id: number; rest: Array<string> } | undefined {
+function idPath(pathname: string, prefix: string): { id: number; rest: Array<string> } | undefined {
   const root = `${prefix}/`;
 
   if (!pathname.startsWith(root)) {
@@ -384,16 +381,33 @@ function readSubcategoryFields(body: unknown): {
 function readWorkFields(body: unknown): {
   name: string;
   notes: string;
+  date?: string | null;
   maximumScore: number;
   weight: number;
 } {
   const record = requireObject(body, "A name is required.");
-  return {
+  const fields: {
+    name: string;
+    notes: string;
+    date?: string | null;
+    maximumScore: number;
+    weight: number;
+  } = {
     name: readStringField(record, "name", "A name is required."),
     notes: readOptionalStringField(record, "notes"),
     maximumScore: readNumberField(record, "maximumScore", "A maximum score is required."),
     weight: readNumberField(record, "weight", "A weight is required."),
   };
+
+  if ("date" in record && record.date !== undefined) {
+    if (record.date === null) {
+      fields.date = null;
+    } else {
+      fields.date = readStringField(record, "date", "Enter a date as YYYY-MM-DD.");
+    }
+  }
+
+  return fields;
 }
 
 function readAssessmentFields(body: unknown): {

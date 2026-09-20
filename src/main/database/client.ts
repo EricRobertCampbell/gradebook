@@ -31,6 +31,7 @@ export function initialiseDatabase(options: InitialiseDatabaseOptions): Initiali
   const db = drizzle(sqlite);
 
   migrate(db, { migrationsFolder: options.migrationsFolder });
+  ensureWorkDateColumn(sqlite);
 
   return { db, sqlite };
 }
@@ -41,4 +42,33 @@ export async function bootstrapDatabase(
   const initialised = initialiseDatabase(options);
   await ensureDatabaseStatusMetadata(initialised.db);
   return initialised;
+}
+
+function ensureWorkDateColumn(sqlite: Database.Database): void {
+  const columns = tableColumnNames(sqlite, "works");
+
+  if (columns.length === 0 || columns.includes("date")) {
+    return;
+  }
+
+  // Drizzle skips a migration whose journal timestamp is older than the newest
+  // applied migration. Another branch can record a later migration first, which
+  // leaves this column missing even though 0008_work_date is in the journal.
+  sqlite.exec("ALTER TABLE `works` ADD `date` text");
+}
+
+function tableColumnNames(sqlite: Database.Database, table: string): Array<string> {
+  const rows: unknown = sqlite.pragma(`table_info(${table})`);
+
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  return rows.flatMap((row) => (isNamedColumn(row) ? [row.name] : []));
+}
+
+function isNamedColumn(value: unknown): value is { name: string } {
+  return (
+    typeof value === "object" && value !== null && "name" in value && typeof value.name === "string"
+  );
 }

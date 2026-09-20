@@ -280,6 +280,8 @@ export const maximumScoreSchema = z
 
 export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
 
+export const optionalIsoDateSchema = z.union([isoDateSchema, z.literal(""), z.null()]).optional();
+
 export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi"]);
 
 export const categoryFieldsSchema = z.object({
@@ -328,6 +330,7 @@ export const subcategoryUpdateInputSchema = subcategoryFieldsSchema.extend({
 export const workFieldsSchema = z.object({
   name: requiredNameSchema,
   notes: z.string().trim(),
+  date: optionalIsoDateSchema,
   maximumScore: maximumScoreSchema,
   weight: weightSchema,
 });
@@ -339,6 +342,7 @@ export const workSchema = z
     subcategoryId: z.number().int().nullable(),
     name: z.string(),
     notes: z.string(),
+    date: z.string().nullable(),
     maximumScore: z.number(),
     weight: z.number(),
   })

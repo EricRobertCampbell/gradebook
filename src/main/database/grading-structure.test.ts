@@ -239,6 +239,58 @@ describe("grading structure", () => {
     }
   });
 
+  it("stores an optional date on work", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const { subcategory } = await seedScienceStructure(db);
+      const dated = await createWork(db, {
+        subcategoryId: subcategory.id,
+        name: "Lab 1",
+        notes: "",
+        date: "2026-09-20",
+        maximumScore: 10,
+        weight: 1,
+      });
+      const undated = await createWork(db, {
+        subcategoryId: subcategory.id,
+        name: "Lab 2",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+
+      expect(dated.date).toBe("2026-09-20");
+      expect(undated.date).toBeNull();
+
+      const cleared = await updateWork(db, {
+        id: dated.id,
+        name: dated.name,
+        notes: dated.notes,
+        date: "",
+        maximumScore: dated.maximumScore,
+        weight: dated.weight,
+      });
+      expect(cleared.date).toBeNull();
+
+      const copied = await copyWork(db, { id: dated.id });
+      expect(copied.date).toBeNull();
+
+      const withDateAgain = await updateWork(db, {
+        id: dated.id,
+        name: dated.name,
+        notes: dated.notes,
+        date: "2026-10-01",
+        maximumScore: dated.maximumScore,
+        weight: dated.weight,
+      });
+      const copiedDated = await copyWork(db, { id: withDateAgain.id });
+      expect(copiedDated.date).toBe("2026-10-01");
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it("rejects work that belongs to both a category and a sub-category, or to neither", async () => {
     const { db, sqlite } = await openTestDatabase();
 
