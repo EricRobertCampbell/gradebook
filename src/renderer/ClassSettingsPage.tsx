@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Class, ClassFields, SchoolYear, Student } from "../shared/ipc";
-import { personDisplayName, personFullName } from "../shared/person-name";
+import { personDisplayName, personDistinctFullName, personFullName } from "../shared/person-name";
 import "./ClassSettingsPage.css";
 import { deleteClass, getClassById, updateClass } from "./classes";
 import { ClassAssessmentSetup } from "./components/ClassAssessmentSetup";
@@ -252,7 +252,9 @@ export function ClassSettingsPage() {
       ) : null}
 
       <h2 className="class-settings-heading">Students</h2>
-      {!loading && enrolled.length === 0 ? <p className="muted">No students in this class yet.</p> : null}
+      {!loading && enrolled.length === 0 ? (
+        <p className="muted">No students in this class yet.</p>
+      ) : null}
       {enrolled.length > 0 ? (
         <ul className="record-list">
           {enrolled.map((student) => (
@@ -263,8 +265,8 @@ export function ClassSettingsPage() {
                 onClick={() => navigate(studentPath(student.id))}
               >
                 {personDisplayName(student)}
-                {student.preferredName ? (
-                  <span className="record-button-meta">{personFullName(student)}</span>
+                {personDistinctFullName(student) ? (
+                  <span className="record-button-meta">{personDistinctFullName(student)}</span>
                 ) : null}
               </button>
               <button
@@ -311,8 +313,8 @@ export function ClassSettingsPage() {
                   onClick={() => void onAddStudent(student)}
                 >
                   {personDisplayName(student)}
-                  {student.preferredName ? (
-                    <span className="record-button-meta">{personFullName(student)}</span>
+                  {personDistinctFullName(student) ? (
+                    <span className="record-button-meta">{personDistinctFullName(student)}</span>
                   ) : null}
                 </button>
               </li>
@@ -320,7 +322,11 @@ export function ClassSettingsPage() {
           </ul>
         )}
         <div className="modal-actions">
-          <button type="button" className="action-button action-button--secondary" onClick={closeAddModal}>
+          <button
+            type="button"
+            className="action-button action-button--secondary"
+            onClick={closeAddModal}
+          >
             Close
           </button>
         </div>

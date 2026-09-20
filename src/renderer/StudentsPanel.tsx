@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Student, StudentFields } from "../shared/ipc";
-import { personDisplayName, personFullName } from "../shared/person-name";
+import { personDisplayName, personDistinctFullName } from "../shared/person-name";
 import "./components/common/ActionButton.css";
 import { ErrorDisplay } from "./components/common/ErrorDisplay";
 import { Modal } from "./components/common/Modal";
 import "./components/common/RecordList.css";
-import {
-  emptyStudentFields,
-  StudentDetailsFields,
-} from "./components/StudentDetailsFields";
+import { emptyStudentFields, StudentDetailsFields } from "./components/StudentDetailsFields";
 import { describeError, type DisplayError } from "./errors";
 import { studentPath } from "./paths";
 import { createStudent, listStudents } from "./students";
@@ -102,8 +99,8 @@ export function StudentsPanel() {
                 onClick={() => navigate(studentPath(student.id))}
               >
                 {personDisplayName(student)}
-                {student.preferredName ? (
-                  <span className="record-button-meta">{personFullName(student)}</span>
+                {personDistinctFullName(student) ? (
+                  <span className="record-button-meta">{personDistinctFullName(student)}</span>
                 ) : null}
               </button>
             </li>
