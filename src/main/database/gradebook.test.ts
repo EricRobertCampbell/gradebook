@@ -9,7 +9,7 @@ import { addStudentToClass } from "./enrolments";
 import { getClassGradebook } from "./gradebook";
 import { createCategory, createSubcategory, createWork } from "./grading-structure";
 import { createSchoolYear } from "./school-years";
-import { createStudent } from "./students";
+import { createStudent, getStudent } from "./students";
 
 const createdDirectories: Array<string> = [];
 
@@ -162,7 +162,9 @@ describe("class gradebook", () => {
         internalName: "sci-9",
       });
       const categoryGrade = gradebook.students[0]?.categories[0];
-      const nhiWork = categoryGrade?.works.find((workGrade) => workGrade.workId === categoryWork.id);
+      const nhiWork = categoryGrade?.works.find(
+        (workGrade) => workGrade.workId === categoryWork.id,
+      );
 
       expect(categoryGrade?.subcategories[0]?.percent).toBe(1);
       expect(nhiWork?.percent).toBe(0);
@@ -189,8 +191,36 @@ describe("class gradebook", () => {
         internalName: "sci-9",
       });
 
-      expect(gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0]?.assessment).toBeNull();
+      expect(
+        gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0]?.assessment,
+      ).toBeNull();
       expect(gradebook.students[0]?.coursePercent).toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("sets the student goal mark when work is named goal_mark", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const goalWork = await createWork(db, {
+        subcategoryId: setup.subcategory.id,
+        name: "goal_mark",
+        notes: "",
+        maximumScore: 100,
+        weight: 0,
+      });
+      await upsertAssessment(db, {
+        workId: goalWork.id,
+        studentId: setup.student.id,
+        score: 80,
+      });
+
+      await expect(getStudent(db, { id: setup.student.id })).resolves.toEqual(
+        expect.objectContaining({ goalMark: 0.8 }),
+      );
     } finally {
       sqlite.close();
     }

@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { check, integer, primaryKey, real, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  unique,
+} from "drizzle-orm/sqlite-core";
 
 export const appMetadata = sqliteTable("app_metadata", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -37,6 +45,7 @@ export const students = sqliteTable("students", {
   preferredName: text("preferred_name").notNull(),
   notes: text("notes").notNull(),
   email: text("email").notNull(),
+  goalMark: real("goal_mark"),
 });
 
 export const parents = sqliteTable("parents", {

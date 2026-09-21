@@ -1,0 +1,1 @@
+ALTER TABLE `students` ADD `goal_mark` real;

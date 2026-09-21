@@ -5,6 +5,9 @@ import {
   assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
+  goalMarkAxisPercent,
+  goalMarkFromScore,
+  isGoalMarkWork,
   markInputErrorMessage,
   mean,
   parseSpecialMark,
@@ -119,6 +122,25 @@ describe("parseSpecialMark", () => {
 describe("markInputErrorMessage", () => {
   it("lists every special mark code", () => {
     expect(markInputErrorMessage()).toBe("Enter a mark, E, or NHI.");
+  });
+});
+
+describe("goal mark work", () => {
+  it("recognises the reserved work name", () => {
+    expect(isGoalMarkWork("goal_mark")).toBe(true);
+    expect(isGoalMarkWork("  Goal_Mark  ")).toBe(true);
+    expect(isGoalMarkWork("Quiz 1")).toBe(false);
+  });
+
+  it("stores a goal as a percent of the maximum score", () => {
+    expect(goalMarkFromScore(8, 10)).toBe(0.8);
+    expect(goalMarkFromScore(8, 0)).toBeNull();
+  });
+
+  it("places the goal on the percent axis", () => {
+    expect(goalMarkAxisPercent(0.8)).toBe(80);
+    expect(goalMarkAxisPercent(1.2)).toBe(100);
+    expect(goalMarkAxisPercent(null)).toBeNull();
   });
 });
 

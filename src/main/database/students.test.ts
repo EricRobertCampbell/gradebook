@@ -37,6 +37,7 @@ describe("students", () => {
         preferredName: "Zo",
         notes: "Form captain",
         email: "zoe@school.test",
+        goalMark: null,
       });
 
       await createStudent(db, studentInput("Ada", "Lovelace"));
@@ -63,6 +64,7 @@ describe("students", () => {
         preferredName: "",
         notes: "",
         email: "",
+        goalMark: null,
       });
 
       await expect(deleteStudent(db, { id: zoe.id })).resolves.toEqual({ deleted: true });
