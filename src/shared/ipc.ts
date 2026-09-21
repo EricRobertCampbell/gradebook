@@ -78,9 +78,7 @@ export const schoolYearNameSchema = z
   .min(1, "A school year name is required.")
   .refine(
     (name) =>
-      !RESERVED_SCHOOL_YEAR_NAMES.some(
-        (reserved) => reserved.toLowerCase() === name.toLowerCase(),
-      ),
+      !RESERVED_SCHOOL_YEAR_NAMES.some((reserved) => reserved.toLowerCase() === name.toLowerCase()),
     "That name is reserved.",
   )
   .refine((name) => !name.includes("/") && !name.includes("#"), {
@@ -106,10 +104,7 @@ export type SchoolYear = z.infer<typeof schoolYearSchema>;
 export type SchoolYearNameInput = z.infer<typeof schoolYearNameInputSchema>;
 export type SchoolYearDeleteResult = z.infer<typeof schoolYearDeleteResultSchema>;
 
-export const classDisplayNameSchema = z
-  .string()
-  .trim()
-  .min(1, "A class display name is required.");
+export const classDisplayNameSchema = z.string().trim().min(1, "A class display name is required.");
 
 export const classInternalNameSchema = z
   .string()
@@ -194,6 +189,7 @@ export const studentFieldsSchema = z.object({
 
 export const studentSchema = studentFieldsSchema.extend({
   id: z.number().int(),
+  goalMark: z.number().nullable(),
 });
 
 export const studentListSchema = z.array(studentSchema);
@@ -280,9 +276,7 @@ export const maximumScoreSchema = z
   .finite({ error: "A maximum score must be a number." })
   .positive("A maximum score must be greater than 0.");
 
-export const isoDateSchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
+export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a date as YYYY-MM-DD.");
 
 export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi"]);
 

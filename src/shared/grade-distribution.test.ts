@@ -295,6 +295,7 @@ function studentFixture(id: number, firstName: string): Student {
     preferredName: firstName,
     notes: "",
     email: "",
+    goalMark: null,
   };
 }
 

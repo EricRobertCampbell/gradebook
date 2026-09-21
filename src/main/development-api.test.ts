@@ -57,8 +57,8 @@ const unusedHandlers: DevelopmentApiHandlers = {
   deleteClass: async () => ({ deleted: true }),
   listStudents: async () => [],
   getStudent: async ({ id }) => sampleStudent(id),
-  createStudent: async (input) => ({ id: 1, ...input }),
-  updateStudent: async (input) => input,
+  createStudent: async (input) => ({ id: 1, goalMark: null, ...input }),
+  updateStudent: async (input) => ({ goalMark: null, ...input }),
   deleteStudent: async () => ({ deleted: true }),
   listClassesForStudent: async () => [],
   listParentsForStudent: async () => [],
@@ -401,6 +401,7 @@ describe("handleDevelopmentApiRequest", () => {
         preferredName: "Ada",
         notes: "Notes",
         email: "ada@school.test",
+        goalMark: null,
       },
     });
 
@@ -642,6 +643,7 @@ function sampleStudent(
     preferredName: string;
     notes: string;
     email: string;
+    goalMark: number | null;
   }> = {},
 ) {
   return {
@@ -651,6 +653,7 @@ function sampleStudent(
     preferredName: "",
     notes: "",
     email: "",
+    goalMark: null,
     ...overrides,
   };
 }

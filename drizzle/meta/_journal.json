@@ -57,6 +57,13 @@
       "when": 1789060860910,
       "tag": "0007_work_category_or_subcategory",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789953102899,
+      "tag": "0008_student_goal_mark",
+      "breakpoints": true
     }
   ]
 }

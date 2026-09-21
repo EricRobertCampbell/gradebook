@@ -105,6 +105,28 @@ export function markInputErrorMessage(): string {
   return `Enter a mark, ${leading}, or ${last}.`;
 }
 
+export const GOAL_MARK_WORK_NAME = "goal_mark";
+
+export function isGoalMarkWork(name: string): boolean {
+  return name.trim().toLowerCase() === GOAL_MARK_WORK_NAME;
+}
+
+export function goalMarkFromScore(score: number, maximumScore: number): number | null {
+  if (!Number.isFinite(score) || !Number.isFinite(maximumScore) || maximumScore <= 0) {
+    return null;
+  }
+
+  return score / maximumScore;
+}
+
+export function goalMarkAxisPercent(goalMark: number | null | undefined): number | null {
+  if (goalMark == null || !Number.isFinite(goalMark)) {
+    return null;
+  }
+
+  return Math.min(100, Math.max(0, goalMark * 100));
+}
+
 export function formatWeightPercent(weight: number): string {
   if (!Number.isFinite(weight)) {
     return "—";

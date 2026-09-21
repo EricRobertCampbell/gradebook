@@ -49,7 +49,11 @@ export function GradeDistributionPanel({
         <>
           <p className="muted">{distributionSummary(distribution)}</p>
           <div className="work-distribution-chart-card">
-            <WorkDistributionChart distribution={distribution} highlightedStudentId={student?.id} />
+            <WorkDistributionChart
+              distribution={distribution}
+              highlightedStudentId={student?.id}
+              goalMark={student?.goalMark}
+            />
           </div>
         </>
       )}

@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { goalMarkFromScore, isGoalMarkWork } from "../../shared/grades";
 import {
   adjustmentCreateInputSchema,
   adjustmentUpdateInputSchema,
@@ -15,8 +16,8 @@ import {
   type DeleteResult,
   type RecordIdInput,
 } from "../../shared/ipc";
-import { adjustments, assessments } from "./schema";
 import { requireWorkInClass } from "./grading-structure";
+import { adjustments, assessments, students } from "./schema";
 import type { GradebookDatabase } from "./status";
 import { requireStudent } from "./students";
 
@@ -47,6 +48,7 @@ export async function upsertAssessment(
       throw new Error("The assessment could not be updated.");
     }
 
+    await syncGoalMark(db, work.name, parsed.studentId, parsed.score, work.maximumScore);
     return parseStoredAssessment(assessment);
   }
 
@@ -68,6 +70,7 @@ export async function upsertAssessment(
     throw new Error("The assessment could not be created.");
   }
 
+  await syncGoalMark(db, work.name, parsed.studentId, parsed.score, work.maximumScore);
   return parseStoredAssessment(assessment);
 }
 
@@ -199,6 +202,26 @@ export function parseStoredAssessment(row: typeof assessments.$inferSelect): Ass
   }
 
   return { ...row, status: status.data };
+}
+
+async function syncGoalMark(
+  db: GradebookDatabase,
+  workName: string,
+  studentId: number,
+  score: number,
+  maximumScore: number,
+): Promise<void> {
+  if (!isGoalMarkWork(workName)) {
+    return;
+  }
+
+  const goalMark = goalMarkFromScore(score, maximumScore);
+
+  if (goalMark === null) {
+    return;
+  }
+
+  await db.update(students).set({ goalMark }).where(eq(students.id, studentId));
 }
 
 function todayIsoDate(): string {
