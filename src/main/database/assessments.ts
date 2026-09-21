@@ -15,8 +15,8 @@ import {
   type DeleteResult,
   type RecordIdInput,
 } from "../../shared/ipc";
-import { adjustments, assessments } from "./schema";
 import { requireWorkInClass } from "./grading-structure";
+import { adjustments, assessments } from "./schema";
 import type { GradebookDatabase } from "./status";
 import { requireStudent } from "./students";
 

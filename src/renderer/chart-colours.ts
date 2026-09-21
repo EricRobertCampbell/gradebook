@@ -5,6 +5,7 @@ export type ChartColours = {
   atOrAboveCutoffHighlight: string;
   density: string;
   cutoff: string;
+  goal: string;
   text: string;
   grid: string;
   tooltip: string;
@@ -20,6 +21,7 @@ export function chartColours(root: HTMLElement = document.documentElement): Char
     atOrAboveCutoffHighlight: mixedCssColour(root, "--success"),
     density: cssColour(styles, "--accent"),
     cutoff: cssColour(styles, "--error"),
+    goal: cssColour(styles, "--colour-warning"),
     text: cssColour(styles, "--ink"),
     grid: cssColour(styles, "--paper-dark"),
     tooltip: cssColour(styles, "--paper-light"),

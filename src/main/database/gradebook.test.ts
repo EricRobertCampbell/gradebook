@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAdjustment, deleteAssessment, upsertAssessment } from "./assessments";
+import { setGoalMark } from "./goal-marks";
 import { bootstrapDatabase } from "./client";
 import { createClass } from "./classes";
 import { addStudentToClass } from "./enrolments";
@@ -162,7 +163,9 @@ describe("class gradebook", () => {
         internalName: "sci-9",
       });
       const categoryGrade = gradebook.students[0]?.categories[0];
-      const nhiWork = categoryGrade?.works.find((workGrade) => workGrade.workId === categoryWork.id);
+      const nhiWork = categoryGrade?.works.find(
+        (workGrade) => workGrade.workId === categoryWork.id,
+      );
 
       expect(categoryGrade?.subcategories[0]?.percent).toBe(1);
       expect(nhiWork?.percent).toBe(0);
@@ -189,8 +192,71 @@ describe("class gradebook", () => {
         internalName: "sci-9",
       });
 
-      expect(gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0]?.assessment).toBeNull();
+      expect(
+        gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0]?.assessment,
+      ).toBeNull();
       expect(gradebook.students[0]?.coursePercent).toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("stores a goal mark against one course, category, sub-category, or work", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      await setGoalMark(db, {
+        studentId: setup.student.id,
+        classId: setup.category.classId,
+        goalMark: 0.9,
+      });
+      await setGoalMark(db, {
+        studentId: setup.student.id,
+        categoryId: setup.category.id,
+        goalMark: 0.8,
+      });
+      await setGoalMark(db, {
+        studentId: setup.student.id,
+        subcategoryId: setup.subcategory.id,
+        goalMark: 0.7,
+      });
+      await setGoalMark(db, {
+        studentId: setup.student.id,
+        workId: setup.work.id,
+        goalMark: 0.6,
+      });
+
+      const gradebook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const row = gradebook.students[0];
+
+      expect(row?.courseGoalMark).toBe(0.9);
+      expect(row?.categories[0]?.goalMark).toBe(0.8);
+      expect(row?.categories[0]?.subcategories[0]?.goalMark).toBe(0.7);
+      expect(row?.categories[0]?.subcategories[0]?.works[0]?.goalMark).toBe(0.6);
+
+      await setGoalMark(db, {
+        studentId: setup.student.id,
+        workId: setup.work.id,
+        goalMark: null,
+      });
+      const cleared = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+
+      expect(cleared.students[0]?.categories[0]?.subcategories[0]?.works[0]?.goalMark).toBeNull();
+      await expect(
+        setGoalMark(db, {
+          studentId: setup.student.id,
+          classId: setup.category.classId,
+          workId: setup.work.id,
+          goalMark: 0.5,
+        }),
+      ).rejects.toThrow("A goal mark needs exactly one course, category, sub-category, or work.");
     } finally {
       sqlite.close();
     }

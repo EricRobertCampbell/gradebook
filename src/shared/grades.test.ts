@@ -5,6 +5,7 @@ import {
   assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
+  goalMarkAxisPercent,
   markInputErrorMessage,
   mean,
   parseSpecialMark,
@@ -119,6 +120,14 @@ describe("parseSpecialMark", () => {
 describe("markInputErrorMessage", () => {
   it("lists every special mark code", () => {
     expect(markInputErrorMessage()).toBe("Enter a mark, E, or NHI.");
+  });
+});
+
+describe("goal mark axis", () => {
+  it("places the goal on the percent axis", () => {
+    expect(goalMarkAxisPercent(0.8)).toBe(80);
+    expect(goalMarkAxisPercent(1.2)).toBe(100);
+    expect(goalMarkAxisPercent(null)).toBeNull();
   });
 });
 

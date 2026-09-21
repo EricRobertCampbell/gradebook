@@ -5,6 +5,8 @@ import {
   classGradebookSchema,
   classGradingStructureSchema,
   deleteResultSchema,
+  goalMarkSetInputSchema,
+  goalMarkSetResultSchema,
   reorderResultSchema,
   subcategorySchema,
   workSchema,
@@ -21,6 +23,8 @@ import {
   type ClassGradingStructure,
   type ClassLookupInput,
   type DeleteResult,
+  type GoalMarkSetInput,
+  type GoalMarkSetResult,
   type RecordIdInput,
   type Subcategory,
   type SubcategoryCreateInput,
@@ -36,6 +40,7 @@ import {
 import {
   DEVELOPMENT_API_ADJUSTMENTS_PATH,
   DEVELOPMENT_API_ASSESSMENTS_PATH,
+  DEVELOPMENT_API_GOAL_MARKS_PATH,
   DEVELOPMENT_API_CATEGORIES_PATH,
   DEVELOPMENT_API_SUBCATEGORIES_PATH,
   DEVELOPMENT_API_WORKS_PATH,
@@ -63,6 +68,7 @@ export type GradingDevelopmentApiHandlers = {
   reorderSubcategoryWorks: (input: SubcategoryReorderWorksInput) => Promise<ReorderResult>;
   upsertAssessment: (input: AssessmentUpsertInput) => Promise<Assessment>;
   deleteAssessment: (input: AssessmentLookupInput) => Promise<DeleteResult>;
+  setGoalMark: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;
   createAdjustment: (input: AdjustmentCreateInput) => Promise<Adjustment>;
   updateAdjustment: (input: AdjustmentUpdateInput) => Promise<Adjustment>;
   deleteAdjustment: (input: RecordIdInput) => Promise<DeleteResult>;
@@ -159,6 +165,13 @@ async function handleRecordGradingRoute(
     body?: unknown;
   },
 ): Promise<DevelopmentApiResponse | undefined> {
+  if (options.pathname === DEVELOPMENT_API_GOAL_MARKS_PATH && options.method === "PUT") {
+    return {
+      statusCode: 200,
+      body: goalMarkSetResultSchema.parse(await options.setGoalMark(readGoalMarkSet(options.body))),
+    };
+  }
+
   const categoryApi = idPath(options.pathname, DEVELOPMENT_API_CATEGORIES_PATH);
   if (categoryApi && categoryApi.rest.length === 0) {
     if (options.method === "PATCH") {
@@ -442,6 +455,16 @@ function idPath(pathname: string, prefix: string): { id: number; rest: Array<str
     id: readPositiveInt(idPart, "That record was not found."),
     rest: parts.slice(1),
   };
+}
+
+function readGoalMarkSet(body: unknown): GoalMarkSetInput {
+  const result = goalMarkSetInputSchema.safeParse(body);
+
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message ?? "The goal mark could not be saved.");
+  }
+
+  return result.data;
 }
 
 function readCategoryFields(body: unknown): { name: string; notes: string; weight: number } {

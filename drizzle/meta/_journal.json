@@ -71,6 +71,13 @@
       "when": 1789942086193,
       "tag": "0009_structure_sort_order",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790560502853,
+      "tag": "0010_goal_marks",
+      "breakpoints": true
     }
   ]
 }

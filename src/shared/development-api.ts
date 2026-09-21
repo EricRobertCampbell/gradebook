@@ -68,6 +68,7 @@ export const DEVELOPMENT_API_CATEGORIES_PATH = "/api/categories";
 export const DEVELOPMENT_API_SUBCATEGORIES_PATH = "/api/subcategories";
 export const DEVELOPMENT_API_WORKS_PATH = "/api/works";
 export const DEVELOPMENT_API_ASSESSMENTS_PATH = "/api/assessments";
+export const DEVELOPMENT_API_GOAL_MARKS_PATH = "/api/goal-marks";
 export const DEVELOPMENT_API_ADJUSTMENTS_PATH = "/api/adjustments";
 
 export function categoryPath(categoryId: number): string {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
@@ -34,6 +34,7 @@ import {
   reorderCategories,
   reorderCategoryChildren,
   reorderSubcategoryWorks,
+  setGoalMark,
   upsertAssessment,
 } from "../grading";
 import {
@@ -77,6 +78,8 @@ export function ClassGradeTable({
   const [collapsedSubcategories, setCollapsedSubcategories] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
+  const [addedGoals, setAddedGoals] = useState<ReadonlySet<string>>(() => new Set());
+  const visibleGoals = visibleGoalColumns(gradebook, addedGoals);
   const showSubcategoryRow = gradebook.categories.some(
     (category) => !categoryIsCollapsed(category, collapsedCategories),
   );
@@ -129,6 +132,18 @@ export function ClassGradeTable({
     }
   }
 
+  function revealGoal(key: string): void {
+    setAddedGoals((current) => {
+      if (current.has(key)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+  }
+
   return (
     <div className="grade-table-wrap">
       <ErrorDisplay error={tableError} />
@@ -161,67 +176,90 @@ export function ClassGradeTable({
               {gradebook.categories.map((category) => {
                 const collapsed = categoryIsCollapsed(category, collapsedCategories);
                 const canCollapse = canCollapseCategory(category);
+                const showGoal = visibleGoals.categories.has(category.id);
 
                 return (
-                  <th
-                    key={category.id}
-                    className={collapsed ? "grade-table-header-bottom" : undefined}
-                    colSpan={categoryColumnCount(
-                      category,
-                      collapsedCategories,
-                      collapsedSubcategories,
-                    )}
-                    rowSpan={collapsed ? headerRows : undefined}
-                    {...sortableListProps(
-                      "categories",
-                      String(category.id),
-                      gradebook.categories.map((item) => String(item.id)),
-                      (tokens) => void persistCategoryOrder(tokens.map((id) => Number(id))),
-                    )}
-                  >
-                    <HeaderLabel
-                      name={category.name}
-                      description={category.notes}
-                      weight={category.weight}
-                      onEdit={() => setStructureEditor({ kind: "category", category })}
-                      editLabel={`Edit ${category.name}`}
-                      onAdd={() =>
-                        setStructureEditor({
-                          kind: "create-subcategory",
-                          categoryId: category.id,
-                        })
-                      }
-                      addLabel={`Add sub-category to ${category.name}`}
-                      onAddWork={() =>
-                        setStructureEditor({
-                          kind: "create-work",
-                          categoryId: category.id,
-                        })
-                      }
-                      addWorkLabel={`Add work to ${category.name}`}
-                      collapsed={collapsed}
-                      onToggleCollapse={
-                        canCollapse
-                          ? () =>
-                              setCollapsedCategories((current) =>
-                                toggleCollapsed(current, category.id),
-                              )
-                          : undefined
-                      }
-                      collapseLabel={
-                        canCollapse
-                          ? collapsed
-                            ? `Expand ${category.name}`
-                            : `Collapse ${category.name}`
-                          : undefined
-                      }
-                    />
-                  </th>
+                  <Fragment key={category.id}>
+                    <th
+                      className={collapsed ? "grade-table-header-bottom" : undefined}
+                      colSpan={categoryHeaderSpan(
+                        category,
+                        visibleGoals,
+                        collapsedCategories,
+                        collapsedSubcategories,
+                      )}
+                      rowSpan={collapsed ? headerRows : undefined}
+                      {...sortableListProps(
+                        "categories",
+                        String(category.id),
+                        gradebook.categories.map((item) => String(item.id)),
+                        (tokens) => void persistCategoryOrder(tokens.map((id) => Number(id))),
+                      )}
+                    >
+                      <HeaderLabel
+                        name={category.name}
+                        description={category.notes}
+                        weight={category.weight}
+                        onEdit={() => setStructureEditor({ kind: "category", category })}
+                        editLabel={`Edit ${category.name}`}
+                        onAdd={() =>
+                          setStructureEditor({
+                            kind: "create-subcategory",
+                            categoryId: category.id,
+                          })
+                        }
+                        addLabel={`Add sub-category to ${category.name}`}
+                        onAddWork={() =>
+                          setStructureEditor({
+                            kind: "create-work",
+                            categoryId: category.id,
+                          })
+                        }
+                        addWorkLabel={`Add work to ${category.name}`}
+                        onAddGoal={
+                          showGoal ? undefined : () => revealGoal(categoryGoalKey(category.id))
+                        }
+                        addGoalLabel={`Add a goal mark for ${category.name}`}
+                        collapsed={collapsed}
+                        onToggleCollapse={
+                          canCollapse
+                            ? () =>
+                                setCollapsedCategories((current) =>
+                                  toggleCollapsed(current, category.id),
+                                )
+                            : undefined
+                        }
+                        collapseLabel={
+                          canCollapse
+                            ? collapsed
+                              ? `Expand ${category.name}`
+                              : `Collapse ${category.name}`
+                            : undefined
+                        }
+                      />
+                    </th>
+                    {showGoal ? <GoalHeader rowSpan={headerRows} /> : null}
+                  </Fragment>
                 );
               })}
               <th className="grade-table-total" rowSpan={headerRows}>
-                Course
+                <div className="grade-header">
+                  <div className="grade-header-title">
+                    <span>Course</span>
+                    {visibleGoals.course ? null : (
+                      <button
+                        type="button"
+                        className="grade-header-goal"
+                        aria-label="Add a course goal mark"
+                        onClick={() => revealGoal(courseGoalKey())}
+                      >
+                        Goal
+                      </button>
+                    )}
+                  </div>
+                </div>
               </th>
+              {visibleGoals.course ? <GoalHeader rowSpan={headerRows} /> : null}
             </tr>
             {showSubcategoryRow ? (
               <tr>
@@ -232,6 +270,8 @@ export function ClassGradeTable({
                       classId={classId}
                       category={category}
                       collapsedSubcategories={collapsedSubcategories}
+                      visibleGoals={visibleGoals}
+                      onRevealGoal={revealGoal}
                       subcategoryRowSpan={showWorkRow ? 2 : 1}
                       onToggleSubcategory={(subcategoryId) =>
                         setCollapsedSubcategories((current) =>
@@ -275,34 +315,43 @@ export function ClassGradeTable({
                       }
 
                       return [
-                        ...subcategory.works.map((work) => (
-                          <th
-                            key={work.id}
-                            className="grade-table-work"
-                            colSpan={2}
-                            {...sortableListProps(
-                              `subcategory-works-${subcategory.id}`,
-                              String(work.id),
-                              subcategory.works.map((item) => String(item.id)),
-                              (tokens) =>
-                                void persistSubcategoryWorks(
-                                  subcategory.id,
-                                  tokens.map((id) => Number(id)),
-                                ),
-                            )}
-                          >
-                            <HeaderLabel
-                              name={work.name}
-                              description={work.notes}
-                              detail={workHeaderDetail(work)}
-                              weight={work.weight}
-                              onEdit={() => setStructureEditor({ kind: "work", work })}
-                              editLabel={`Edit ${work.name}`}
-                              dataHref={classWorkDataPath(classId, work.id)}
-                              dataLabel={`Data for ${work.name}`}
-                            />
-                          </th>
-                        )),
+                        ...subcategory.works.flatMap((work) => {
+                          const showGoal = visibleGoals.works.has(work.id);
+
+                          return [
+                            <th
+                              key={work.id}
+                              className="grade-table-work"
+                              colSpan={2}
+                              {...sortableListProps(
+                                `subcategory-works-${subcategory.id}`,
+                                String(work.id),
+                                subcategory.works.map((item) => String(item.id)),
+                                (tokens) =>
+                                  void persistSubcategoryWorks(
+                                    subcategory.id,
+                                    tokens.map((id) => Number(id)),
+                                  ),
+                              )}
+                            >
+                              <HeaderLabel
+                                name={work.name}
+                                description={work.notes}
+                                detail={workHeaderDetail(work)}
+                                weight={work.weight}
+                                onEdit={() => setStructureEditor({ kind: "work", work })}
+                                editLabel={`Edit ${work.name}`}
+                                dataHref={classWorkDataPath(classId, work.id)}
+                                dataLabel={`Data for ${work.name}`}
+                                onAddGoal={
+                                  showGoal ? undefined : () => revealGoal(workGoalKey(work.id))
+                                }
+                                addGoalLabel={`Add a goal mark for ${work.name}`}
+                              />
+                            </th>,
+                            showGoal ? <GoalHeader key={`goal-${work.id}`} /> : null,
+                          ];
+                        }),
                         <th key={`sub-${subcategory.id}`} className="grade-table-summary">
                           %
                         </th>,
@@ -318,6 +367,7 @@ export function ClassGradeTable({
               gradebook={gradebook}
               collapsedCategories={collapsedCategories}
               collapsedSubcategories={collapsedSubcategories}
+              visibleGoals={visibleGoals}
             />
             {gradebook.students.map((row) => (
               <GradeRow
@@ -327,6 +377,7 @@ export function ClassGradeTable({
                 row={row}
                 collapsedCategories={collapsedCategories}
                 collapsedSubcategories={collapsedSubcategories}
+                visibleGoals={visibleGoals}
                 onChanged={onChanged}
                 onError={setTableError}
                 onOpenAssessment={(work, workGrade) =>
@@ -364,6 +415,8 @@ function CategorySubheaders({
   classId,
   category,
   collapsedSubcategories,
+  visibleGoals,
+  onRevealGoal,
   subcategoryRowSpan,
   onToggleSubcategory,
   onEditSubcategory,
@@ -374,6 +427,8 @@ function CategorySubheaders({
   classId: number;
   category: GradeCategory;
   collapsedSubcategories: ReadonlySet<number>;
+  visibleGoals: VisibleGoals;
+  onRevealGoal: (key: string) => void;
   subcategoryRowSpan: number;
   onToggleSubcategory: (subcategoryId: number) => void;
   onEditSubcategory: (subcategory: GradeSubcategory) => void;
@@ -388,74 +443,96 @@ function CategorySubheaders({
       {sortCategoryChildren(category.subcategories, category.works).map((child) => {
         if (child.kind === "work") {
           const work = child.item;
+          const showWorkGoal = visibleGoals.works.has(work.id);
           return (
-            <th
-              key={`category-work-${work.id}`}
-              className="grade-table-work grade-table-header-bottom"
-              colSpan={2}
-              rowSpan={subcategoryRowSpan}
-              {...sortableListProps(
-                `category-children-${category.id}`,
-                categoryChildToken("work", work.id),
-                childTokens,
-                onReorderChildren,
-              )}
-            >
-              <HeaderLabel
-                name={work.name}
-                description={work.notes}
-                detail={workHeaderDetail(work)}
-                weight={work.weight}
-                onEdit={() => onEditWork(work)}
-                editLabel={`Edit ${work.name}`}
-                dataHref={classWorkDataPath(classId, work.id)}
-                dataLabel={`Data for ${work.name}`}
-              />
-            </th>
+            <Fragment key={`category-work-${work.id}`}>
+              <th
+                className="grade-table-work grade-table-header-bottom"
+                colSpan={2}
+                rowSpan={subcategoryRowSpan}
+                {...sortableListProps(
+                  `category-children-${category.id}`,
+                  categoryChildToken("work", work.id),
+                  childTokens,
+                  onReorderChildren,
+                )}
+              >
+                <HeaderLabel
+                  name={work.name}
+                  description={work.notes}
+                  detail={workHeaderDetail(work)}
+                  weight={work.weight}
+                  onEdit={() => onEditWork(work)}
+                  editLabel={`Edit ${work.name}`}
+                  dataHref={classWorkDataPath(classId, work.id)}
+                  dataLabel={`Data for ${work.name}`}
+                  onAddGoal={showWorkGoal ? undefined : () => onRevealGoal(workGoalKey(work.id))}
+                  addGoalLabel={`Add a goal mark for ${work.name}`}
+                />
+              </th>
+              {showWorkGoal ? <GoalHeader rowSpan={subcategoryRowSpan} /> : null}
+            </Fragment>
           );
         }
 
         const subcategory = child.item;
         const collapsed = subcategoryIsCollapsed(subcategory, collapsedSubcategories);
         const canCollapse = canCollapseSubcategory(subcategory);
+        const showGoal = visibleGoals.subcategories.has(subcategory.id);
 
         return (
-          <th
-            key={subcategory.id}
-            className={collapsed ? "grade-table-header-bottom" : undefined}
-            colSpan={collapsed ? 1 : subcategory.works.length * 2 + 1}
-            rowSpan={collapsed ? subcategoryRowSpan : undefined}
-            {...sortableListProps(
-              `category-children-${category.id}`,
-              categoryChildToken("subcategory", subcategory.id),
-              childTokens,
-              onReorderChildren,
-            )}
-          >
-            <HeaderLabel
-              name={subcategory.name}
-              weight={subcategory.weight}
-              onEdit={() => onEditSubcategory(subcategory)}
-              editLabel={`Edit ${subcategory.name}`}
-              onAdd={() => onAddWork(subcategory)}
-              addLabel={`Add work to ${subcategory.name}`}
-              collapsed={collapsed}
-              onToggleCollapse={canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined}
-              collapseLabel={
-                canCollapse
-                  ? collapsed
-                    ? `Expand ${subcategory.name}`
-                    : `Collapse ${subcategory.name}`
-                  : undefined
-              }
-            />
-          </th>
+          <Fragment key={subcategory.id}>
+            <th
+              className={collapsed ? "grade-table-header-bottom" : undefined}
+              colSpan={subcategoryHeaderSpan(subcategory, visibleGoals, collapsedSubcategories)}
+              rowSpan={collapsed ? subcategoryRowSpan : undefined}
+              {...sortableListProps(
+                `category-children-${category.id}`,
+                categoryChildToken("subcategory", subcategory.id),
+                childTokens,
+                onReorderChildren,
+              )}
+            >
+              <HeaderLabel
+                name={subcategory.name}
+                weight={subcategory.weight}
+                onEdit={() => onEditSubcategory(subcategory)}
+                editLabel={`Edit ${subcategory.name}`}
+                onAdd={() => onAddWork(subcategory)}
+                addLabel={`Add work to ${subcategory.name}`}
+                onAddGoal={
+                  showGoal ? undefined : () => onRevealGoal(subcategoryGoalKey(subcategory.id))
+                }
+                addGoalLabel={`Add a goal mark for ${subcategory.name}`}
+                collapsed={collapsed}
+                onToggleCollapse={
+                  canCollapse ? () => onToggleSubcategory(subcategory.id) : undefined
+                }
+                collapseLabel={
+                  canCollapse
+                    ? collapsed
+                      ? `Expand ${subcategory.name}`
+                      : `Collapse ${subcategory.name}`
+                    : undefined
+                }
+              />
+            </th>
+            {showGoal ? <GoalHeader rowSpan={subcategoryRowSpan} /> : null}
+          </Fragment>
         );
       })}
       <th className="grade-table-summary" rowSpan={subcategoryRowSpan}>
         Unit
       </th>
     </>
+  );
+}
+
+function GoalHeader({ rowSpan }: { rowSpan?: number }) {
+  return (
+    <th className="grade-table-goal grade-table-header-bottom" rowSpan={rowSpan}>
+      Goal
+    </th>
   );
 }
 
@@ -472,6 +549,8 @@ function HeaderLabel({
   addLabel,
   onAddWork,
   addWorkLabel,
+  onAddGoal,
+  addGoalLabel,
   collapsed,
   onToggleCollapse,
   collapseLabel,
@@ -488,6 +567,8 @@ function HeaderLabel({
   addLabel?: string;
   onAddWork?: () => void;
   addWorkLabel?: string;
+  onAddGoal?: () => void;
+  addGoalLabel?: string;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   collapseLabel?: string;
@@ -530,6 +611,16 @@ function HeaderLabel({
             <PlusIcon />
           </button>
         ) : null}
+        {onAddGoal && addGoalLabel ? (
+          <button
+            type="button"
+            className="grade-header-goal"
+            aria-label={addGoalLabel}
+            onClick={onAddGoal}
+          >
+            Goal
+          </button>
+        ) : null}
       </div>
       {description ? <span className="grade-header-detail">{description}</span> : null}
       {detail ? <span className="grade-header-detail">{detail}</span> : null}
@@ -542,10 +633,12 @@ function AverageRow({
   gradebook,
   collapsedCategories,
   collapsedSubcategories,
+  visibleGoals,
 }: {
   gradebook: ClassGradebook;
   collapsedCategories: ReadonlySet<number>;
   collapsedSubcategories: ReadonlySet<number>;
+  visibleGoals: VisibleGoals;
 }) {
   const averages = classAverages(gradebook);
 
@@ -559,9 +652,14 @@ function AverageRow({
 
         if (categoryIsCollapsed(category, collapsedCategories)) {
           return (
-            <td key={category.id} className="grade-table-summary">
-              {formatGradePercent(categoryAverage?.percent ?? null)}
-            </td>
+            <Fragment key={category.id}>
+              <td className="grade-table-summary">
+                {formatGradePercent(categoryAverage?.percent ?? null)}
+              </td>
+              {visibleGoals.categories.has(category.id) ? (
+                <td className="grade-table-goal" />
+              ) : null}
+            </Fragment>
           );
         }
 
@@ -571,10 +669,12 @@ function AverageRow({
             category={category}
             categoryAverage={categoryAverage}
             collapsedSubcategories={collapsedSubcategories}
+            visibleGoals={visibleGoals}
           />
         );
       })}
       <td className="grade-table-total">{formatGradePercent(averages.course)}</td>
+      {visibleGoals.course ? <td className="grade-table-goal" /> : null}
     </tr>
   );
 }
@@ -583,10 +683,12 @@ function AverageCategoryCells({
   category,
   categoryAverage,
   collapsedSubcategories,
+  visibleGoals,
 }: {
   category: GradeCategory;
   categoryAverage: ClassAverages["categories"][number] | undefined;
   collapsedSubcategories: ReadonlySet<number>;
+  visibleGoals: VisibleGoals;
 }) {
   return (
     <>
@@ -599,6 +701,7 @@ function AverageCategoryCells({
               key={child.item.id}
               workName={child.item.name}
               percent={workAverage?.percent ?? null}
+              showGoal={visibleGoals.works.has(child.item.id)}
             />
           );
         }
@@ -611,9 +714,14 @@ function AverageCategoryCells({
 
         if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
           return (
-            <td key={subcategory.id} className="grade-table-summary">
-              {formatGradePercent(subcategoryAverage?.percent ?? null)}
-            </td>
+            <Fragment key={subcategory.id}>
+              <td className="grade-table-summary">
+                {formatGradePercent(subcategoryAverage?.percent ?? null)}
+              </td>
+              {visibleGoals.subcategories.has(subcategory.id) ? (
+                <td className="grade-table-goal" />
+              ) : null}
+            </Fragment>
           );
         }
 
@@ -622,12 +730,14 @@ function AverageCategoryCells({
             key={subcategory.id}
             subcategory={subcategory}
             subcategoryAverage={subcategoryAverage}
+            visibleGoals={visibleGoals}
           />
         );
       })}
       <td className="grade-table-summary">
         {formatGradePercent(categoryAverage?.percent ?? null)}
       </td>
+      {visibleGoals.categories.has(category.id) ? <td className="grade-table-goal" /> : null}
     </>
   );
 }
@@ -635,9 +745,11 @@ function AverageCategoryCells({
 function AverageSubcategoryCells({
   subcategory,
   subcategoryAverage,
+  visibleGoals,
 }: {
   subcategory: GradeSubcategory;
   subcategoryAverage: ClassAverages["categories"][number]["subcategories"][number] | undefined;
+  visibleGoals: VisibleGoals;
 }) {
   return (
     <>
@@ -649,17 +761,27 @@ function AverageSubcategoryCells({
             key={work.id}
             workName={work.name}
             percent={workAverage?.percent ?? null}
+            showGoal={visibleGoals.works.has(work.id)}
           />
         );
       })}
       <td className="grade-table-summary">
         {formatGradePercent(subcategoryAverage?.percent ?? null)}
       </td>
+      {visibleGoals.subcategories.has(subcategory.id) ? <td className="grade-table-goal" /> : null}
     </>
   );
 }
 
-function AverageWorkCells({ workName, percent }: { workName: string; percent: number | null }) {
+function AverageWorkCells({
+  workName,
+  percent,
+  showGoal,
+}: {
+  workName: string;
+  percent: number | null;
+  showGoal: boolean;
+}) {
   return (
     <>
       <td className="grade-cell" />
@@ -668,6 +790,7 @@ function AverageWorkCells({ workName, percent }: { workName: string; percent: nu
           {formatGradePercent(percent)}
         </span>
       </td>
+      {showGoal ? <td className="grade-table-goal" /> : null}
     </>
   );
 }
@@ -678,6 +801,7 @@ function GradeRow({
   row,
   collapsedCategories,
   collapsedSubcategories,
+  visibleGoals,
   onChanged,
   onError,
   onOpenAssessment,
@@ -687,6 +811,7 @@ function GradeRow({
   row: StudentGradeRow;
   collapsedCategories: ReadonlySet<number>;
   collapsedSubcategories: ReadonlySet<number>;
+  visibleGoals: VisibleGoals;
   onChanged: () => Promise<void>;
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
@@ -724,7 +849,9 @@ function GradeRow({
             workGrades={categoryGrade?.works ?? []}
             collapsed={categoryIsCollapsed(category, collapsedCategories)}
             collapsedSubcategories={collapsedSubcategories}
+            visibleGoals={visibleGoals}
             studentId={row.student.id}
+            categoryGoal={categoryGrade?.goalMark ?? null}
             onChanged={onChanged}
             onError={onError}
             onOpenAssessment={onOpenAssessment}
@@ -732,6 +859,15 @@ function GradeRow({
         );
       })}
       <td className="grade-table-total">{formatGradePercent(row.coursePercent)}</td>
+      {visibleGoals.course ? (
+        <GoalCell
+          label="Course goal mark"
+          goalMark={row.courseGoalMark}
+          onSave={(goalMark) => setGoalMark({ studentId: row.student.id, classId, goalMark })}
+          onChanged={onChanged}
+          onError={onError}
+        />
+      ) : null}
     </tr>
   );
 }
@@ -743,7 +879,9 @@ function CategoryCells({
   workGrades,
   collapsed,
   collapsedSubcategories,
+  visibleGoals,
   studentId,
+  categoryGoal,
   onChanged,
   onError,
   onOpenAssessment,
@@ -754,13 +892,28 @@ function CategoryCells({
   workGrades: Array<StudentWorkGrade>;
   collapsed: boolean;
   collapsedSubcategories: ReadonlySet<number>;
+  visibleGoals: VisibleGoals;
   studentId: number;
+  categoryGoal: number | null;
   onChanged: () => Promise<void>;
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
 }) {
   if (collapsed) {
-    return <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>;
+    return (
+      <>
+        <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>
+        {visibleGoals.categories.has(category.id) ? (
+          <GoalCell
+            label={`Goal mark for ${category.name}`}
+            goalMark={categoryGoal}
+            onSave={(goalMark) => setGoalMark({ studentId, categoryId: category.id, goalMark })}
+            onChanged={onChanged}
+            onError={onError}
+          />
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -774,6 +927,7 @@ function CategoryCells({
             assessment: null,
             adjustments: [],
             percent: null,
+            goalMark: null,
           };
 
           return (
@@ -782,6 +936,7 @@ function CategoryCells({
               work={work}
               workGrade={workGrade}
               studentId={studentId}
+              showGoal={visibleGoals.works.has(work.id)}
               onChanged={onChanged}
               onError={onError}
               onOpenAssessment={() => onOpenAssessment(work, workGrade)}
@@ -802,7 +957,9 @@ function CategoryCells({
             subcategoryPercent={subcategoryGrade?.percent ?? null}
             workGrades={subcategoryGrade?.works ?? []}
             collapsed={subcategoryIsCollapsed(subcategory, collapsedSubcategories)}
+            visibleGoals={visibleGoals}
             studentId={studentId}
+            subcategoryGoal={subcategoryGrade?.goalMark ?? null}
             onChanged={onChanged}
             onError={onError}
             onOpenAssessment={onOpenAssessment}
@@ -810,6 +967,15 @@ function CategoryCells({
         );
       })}
       <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>
+      {visibleGoals.categories.has(category.id) ? (
+        <GoalCell
+          label={`Goal mark for ${category.name}`}
+          goalMark={categoryGoal}
+          onSave={(goalMark) => setGoalMark({ studentId, categoryId: category.id, goalMark })}
+          onChanged={onChanged}
+          onError={onError}
+        />
+      ) : null}
     </>
   );
 }
@@ -819,7 +985,9 @@ function SubcategoryCells({
   subcategoryPercent,
   workGrades,
   collapsed,
+  visibleGoals,
   studentId,
+  subcategoryGoal,
   onChanged,
   onError,
   onOpenAssessment,
@@ -828,13 +996,30 @@ function SubcategoryCells({
   subcategoryPercent: number | null;
   workGrades: Array<StudentWorkGrade>;
   collapsed: boolean;
+  visibleGoals: VisibleGoals;
   studentId: number;
+  subcategoryGoal: number | null;
   onChanged: () => Promise<void>;
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
 }) {
   if (collapsed) {
-    return <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>;
+    return (
+      <>
+        <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>
+        {visibleGoals.subcategories.has(subcategory.id) ? (
+          <GoalCell
+            label={`Goal mark for ${subcategory.name}`}
+            goalMark={subcategoryGoal}
+            onSave={(goalMark) =>
+              setGoalMark({ studentId, subcategoryId: subcategory.id, goalMark })
+            }
+            onChanged={onChanged}
+            onError={onError}
+          />
+        ) : null}
+      </>
+    );
   }
 
   return (
@@ -845,6 +1030,7 @@ function SubcategoryCells({
           assessment: null,
           adjustments: [],
           percent: null,
+          goalMark: null,
         };
 
         return (
@@ -853,6 +1039,7 @@ function SubcategoryCells({
             work={work}
             workGrade={workGrade}
             studentId={studentId}
+            showGoal={visibleGoals.works.has(work.id)}
             onChanged={onChanged}
             onError={onError}
             onOpenAssessment={() => onOpenAssessment(work, workGrade)}
@@ -860,6 +1047,15 @@ function SubcategoryCells({
         );
       })}
       <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>
+      {visibleGoals.subcategories.has(subcategory.id) ? (
+        <GoalCell
+          label={`Goal mark for ${subcategory.name}`}
+          goalMark={subcategoryGoal}
+          onSave={(goalMark) => setGoalMark({ studentId, subcategoryId: subcategory.id, goalMark })}
+          onChanged={onChanged}
+          onError={onError}
+        />
+      ) : null}
     </>
   );
 }
@@ -868,6 +1064,7 @@ function MarkCells({
   work,
   workGrade,
   studentId,
+  showGoal,
   onChanged,
   onError,
   onOpenAssessment,
@@ -875,6 +1072,7 @@ function MarkCells({
   work: GradeWork;
   workGrade: StudentWorkGrade;
   studentId: number;
+  showGoal: boolean;
   onChanged: () => Promise<void>;
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: () => void;
@@ -1008,7 +1206,104 @@ function MarkCells({
           ) : null}
         </span>
       </td>
+      {showGoal ? (
+        <GoalCell
+          label={`Goal mark for ${work.name}`}
+          goalMark={workGrade.goalMark}
+          onSave={(goalMark) => setGoalMark({ studentId, workId: work.id, goalMark })}
+          onChanged={onChanged}
+          onError={onError}
+        />
+      ) : null}
     </>
+  );
+}
+
+function GoalCell({
+  label,
+  goalMark,
+  onSave,
+  onChanged,
+  onError,
+}: {
+  label: string;
+  goalMark: number | null;
+  onSave: (goalMark: number | null) => Promise<unknown>;
+  onChanged: () => Promise<void>;
+  onError: (error: DisplayError | null) => void;
+}) {
+  const saved = goalInputValue(goalMark);
+  const [draft, setDraft] = useState(saved);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDraft(saved);
+  }, [saved]);
+
+  async function save(): Promise<void> {
+    const trimmed = draft.trim();
+
+    if (trimmed === "") {
+      if (goalMark === null) {
+        return;
+      }
+
+      await persist(null);
+      return;
+    }
+
+    let next: number;
+
+    try {
+      next = goalFraction(trimmed);
+    } catch (caught) {
+      onError(describeError(caught, "Enter a goal percent."));
+      return;
+    }
+
+    if (goalInputValue(next) === saved) {
+      setDraft(saved);
+      return;
+    }
+
+    await persist(next);
+  }
+
+  async function persist(next: number | null): Promise<void> {
+    setSaving(true);
+    onError(null);
+
+    try {
+      await onSave(next);
+      await onChanged();
+    } catch (caught) {
+      onError(describeError(caught, "The goal mark could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <td className="grade-table-goal">
+      <div className="grade-score">
+        <input
+          className="grade-score-input"
+          type="text"
+          inputMode="decimal"
+          value={draft}
+          aria-label={label}
+          disabled={saving}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={() => void save()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+        />
+        <span className="grade-goal-suffix">%</span>
+      </div>
+    </td>
   );
 }
 
@@ -1186,8 +1481,16 @@ function subcategoryIsCollapsed(
   return canCollapseSubcategory(subcategory) && collapsedSubcategories.has(subcategory.id);
 }
 
-function categoryColumnCount(
+type VisibleGoals = {
+  course: boolean;
+  categories: ReadonlySet<number>;
+  subcategories: ReadonlySet<number>;
+  works: ReadonlySet<number>;
+};
+
+function categoryHeaderSpan(
   category: GradeCategory,
+  goals: VisibleGoals,
   collapsedCategories: ReadonlySet<number>,
   collapsedSubcategories: ReadonlySet<number>,
 ): number {
@@ -1196,16 +1499,150 @@ function categoryColumnCount(
   }
 
   return (
-    category.subcategories.reduce((sum, subcategory) => {
-      if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
-        return sum + 1;
-      }
-
-      return sum + subcategory.works.length * 2 + 1;
-    }, 0) +
-    category.works.length * 2 +
+    category.subcategories.reduce(
+      (sum, subcategory) => sum + subcategoryCellCount(subcategory, goals, collapsedSubcategories),
+      0,
+    ) +
+    category.works.reduce((sum, work) => sum + workCellCount(work.id, goals), 0) +
     1
   );
+}
+
+function subcategoryHeaderSpan(
+  subcategory: GradeSubcategory,
+  goals: VisibleGoals,
+  collapsedSubcategories: ReadonlySet<number>,
+): number {
+  if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+    return 1;
+  }
+
+  return subcategory.works.reduce((sum, work) => sum + workCellCount(work.id, goals), 0) + 1;
+}
+
+function subcategoryCellCount(
+  subcategory: GradeSubcategory,
+  goals: VisibleGoals,
+  collapsedSubcategories: ReadonlySet<number>,
+): number {
+  const goal = goals.subcategories.has(subcategory.id) ? 1 : 0;
+
+  if (subcategoryIsCollapsed(subcategory, collapsedSubcategories)) {
+    return 1 + goal;
+  }
+
+  return subcategory.works.reduce((sum, work) => sum + workCellCount(work.id, goals), 0) + 1 + goal;
+}
+
+function workCellCount(workId: number, goals: VisibleGoals): number {
+  return goals.works.has(workId) ? 3 : 2;
+}
+
+function visibleGoalColumns(gradebook: ClassGradebook, added: ReadonlySet<string>): VisibleGoals {
+  const categories = new Set<number>();
+  const subcategories = new Set<number>();
+  const works = new Set<number>();
+  let course = added.has(courseGoalKey());
+
+  for (const row of gradebook.students) {
+    if (row.courseGoalMark !== null) {
+      course = true;
+    }
+
+    for (const category of row.categories) {
+      if (category.goalMark !== null) {
+        categories.add(category.categoryId);
+      }
+
+      for (const subcategory of category.subcategories) {
+        if (subcategory.goalMark !== null) {
+          subcategories.add(subcategory.subcategoryId);
+        }
+
+        for (const work of subcategory.works) {
+          if (work.goalMark !== null) {
+            works.add(work.workId);
+          }
+        }
+      }
+
+      for (const work of category.works) {
+        if (work.goalMark !== null) {
+          works.add(work.workId);
+        }
+      }
+    }
+  }
+
+  for (const key of added) {
+    const categoryId = goalKeyId(key, "category");
+    const subcategoryId = goalKeyId(key, "subcategory");
+    const workId = goalKeyId(key, "work");
+
+    if (categoryId !== null) {
+      categories.add(categoryId);
+    }
+
+    if (subcategoryId !== null) {
+      subcategories.add(subcategoryId);
+    }
+
+    if (workId !== null) {
+      works.add(workId);
+    }
+  }
+
+  return { course, categories, subcategories, works };
+}
+
+function courseGoalKey(): string {
+  return "course";
+}
+
+function categoryGoalKey(id: number): string {
+  return `category:${id}`;
+}
+
+function subcategoryGoalKey(id: number): string {
+  return `subcategory:${id}`;
+}
+
+function workGoalKey(id: number): string {
+  return `work:${id}`;
+}
+
+function goalKeyId(key: string, prefix: string): number | null {
+  const marker = `${prefix}:`;
+
+  if (!key.startsWith(marker)) {
+    return null;
+  }
+
+  const id = Number(key.slice(marker.length));
+
+  if (!Number.isInteger(id)) {
+    return null;
+  }
+
+  return id;
+}
+
+function goalInputValue(goalMark: number | null): string {
+  if (goalMark === null || !Number.isFinite(goalMark)) {
+    return "";
+  }
+
+  return String(Math.round(goalMark * 1000) / 10);
+}
+
+function goalFraction(value: string): number {
+  const percent = parseRequiredNumber(value, "Enter a goal percent.");
+
+  if (percent < 0) {
+    throw new Error("Enter a goal percent.");
+  }
+
+  return Math.round(percent * 10) / 1000;
 }
 
 function toggleCollapsed(current: ReadonlySet<number>, id: number): ReadonlySet<number> {

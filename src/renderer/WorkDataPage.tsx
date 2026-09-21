@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { findClassWork } from "../shared/grade-distribution";
-import type { Class, ClassGradebook, SchoolYear, Student, Work } from "../shared/ipc";
+import { workGoalMark } from "../shared/goal-marks";
+import type { Class, ClassGradebook, SchoolYear, Work } from "../shared/ipc";
 import { personDisplayName } from "../shared/person-name";
 import { getClassById } from "./classes";
 import "./components/common/BackLink.css";
@@ -110,7 +111,8 @@ export function WorkDataPage() {
           <WorkDistributionPanel
             work={work}
             gradebook={gradebook}
-            student={selectedStudent(gradebook, studentId) ?? undefined}
+            highlightedStudentId={studentId ?? undefined}
+            goalMark={studentId === null ? null : workGoalMark(gradebook, studentId, work.id)}
           />
         </>
       ) : null}
@@ -122,14 +124,6 @@ export function WorkDataPage() {
       </p>
     </div>
   );
-}
-
-function selectedStudent(gradebook: ClassGradebook, studentId: number | null): Student | null {
-  if (studentId === null) {
-    return null;
-  }
-
-  return gradebook.students.find((row) => row.student.id === studentId)?.student ?? null;
 }
 
 function parseSelectedStudentId(value: string): number | null {

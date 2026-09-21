@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { countableCourseMarks } from "../shared/grade-distribution";
+import { courseGoalMark } from "../shared/goal-marks";
 import type { Class, ClassGradebook, SchoolYear, Student } from "../shared/ipc";
 import { personDisplayName } from "../shared/person-name";
 import { getClassById } from "./classes";
@@ -100,7 +101,8 @@ export function StudentClassDataPage() {
             title="Course average"
             emptyMessage="No course averages yet. Enter grades in the class table."
             marks={countableCourseMarks(gradebook)}
-            student={student}
+            highlightedStudentId={student.id}
+            goalMark={courseGoalMark(gradebook, student.id)}
           />
 
           {gradebook.categories.length === 0 ? (

@@ -91,7 +91,9 @@ export async function removeStudentFromClass(
 
   const removed = await db
     .delete(classStudents)
-    .where(and(eq(classStudents.classId, schoolClass.id), eq(classStudents.studentId, parsed.studentId)))
+    .where(
+      and(eq(classStudents.classId, schoolClass.id), eq(classStudents.studentId, parsed.studentId)),
+    )
     .returning();
 
   if (!removed[0]) {

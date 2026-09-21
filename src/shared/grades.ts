@@ -105,6 +105,14 @@ export function markInputErrorMessage(): string {
   return `Enter a mark, ${leading}, or ${last}.`;
 }
 
+export function goalMarkAxisPercent(goalMark: number | null | undefined): number | null {
+  if (goalMark == null || !Number.isFinite(goalMark)) {
+    return null;
+  }
+
+  return Math.min(100, Math.max(0, goalMark * 100));
+}
+
 export function formatWeightPercent(weight: number): string {
   if (!Number.isFinite(weight)) {
     return "—";
