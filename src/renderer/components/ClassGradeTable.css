@@ -162,6 +162,7 @@
 }
 
 .grade-header-edit,
+.grade-header-goal,
 .grade-score-edit {
   display: inline-flex;
   align-items: center;
@@ -183,7 +184,21 @@
   text-decoration: none;
 }
 
-.grade-header-edit:hover {
+.grade-header-goal {
+  width: auto;
+  height: auto;
+  padding: 0.05rem 0.38rem;
+  border: 1px solid color-mix(in srgb, var(--paper-light) 42%, transparent);
+  background: transparent;
+  color: var(--paper-light);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.grade-header-edit:hover,
+.grade-header-goal:hover {
   background: var(--colour-primary);
   border-color: var(--colour-primary);
   color: var(--paper-light);
@@ -201,20 +216,35 @@
 }
 
 .grade-table-summary,
-.grade-table-total {
+.grade-table-total,
+.grade-table-goal {
   min-width: 3.8rem;
 }
 
-.grade-table-total {
+.grade-table-total,
+.grade-table-goal {
   position: sticky;
   right: 0;
   z-index: 2;
+}
+
+.grade-table-total {
   box-shadow: -0.45rem 0 0.55rem -0.35rem color-mix(in srgb, var(--ink) 32%, transparent);
 }
 
+.grade-table-total:has(+ .grade-table-goal) {
+  right: 4.6rem;
+  box-shadow: none;
+}
+
 .grade-table thead .grade-table-student,
-.grade-table thead .grade-table-total {
+.grade-table thead .grade-table-total,
+.grade-table thead .grade-table-goal {
   z-index: 3;
+}
+
+.grade-goal-suffix {
+  font-weight: 650;
 }
 
 .grade-table tbody .grade-table-summary,
@@ -265,6 +295,7 @@
 .grade-score-input:focus,
 .grade-score-edit:focus,
 .grade-header-edit:focus,
+.grade-header-goal:focus,
 .grade-adjusted-mark:focus {
   outline: 2px solid var(--colour-primary);
   outline-offset: 1px;

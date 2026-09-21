@@ -23,6 +23,8 @@ import type {
   DatabaseImportResult,
   DatabaseStatus,
   DeleteResult,
+  GoalMarkSetInput,
+  GoalMarkSetResult,
   EnrolledClass,
   RecordIdInput,
   ReorderResult,
@@ -98,6 +100,9 @@ export type GradebookApi = {
   assessments: {
     upsert: (input: AssessmentUpsertInput) => Promise<Assessment>;
     delete: (input: AssessmentLookupInput) => Promise<DeleteResult>;
+  };
+  goalMarks: {
+    set: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;
   };
   adjustments: {
     create: (input: AdjustmentCreateInput) => Promise<Adjustment>;

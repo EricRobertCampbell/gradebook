@@ -10,6 +10,7 @@ import {
   classCategoriesPath,
   classGradebookPath,
   classGradingStructurePath,
+  DEVELOPMENT_API_GOAL_MARKS_PATH,
   subcategoryCopyPath,
   subcategoryPath,
   subcategoryWorksOrderPath,
@@ -33,6 +34,8 @@ import {
   classGradebookSchema,
   classGradingStructureSchema,
   classLookupInputSchema,
+  goalMarkSetInputSchema,
+  goalMarkSetResultSchema,
   deleteResultSchema,
   recordIdInputSchema,
   reorderResultSchema,
@@ -57,6 +60,8 @@ import {
   type ClassGradebook,
   type ClassGradingStructure,
   type ClassLookupInput,
+  type GoalMarkSetInput,
+  type GoalMarkSetResult,
   type DeleteResult,
   type RecordIdInput,
   type ReorderResult,
@@ -465,6 +470,26 @@ export async function upsertAssessment(input: AssessmentUpsertInput): Promise<As
         }),
       },
       "The assessment could not be saved.",
+    ),
+  );
+}
+
+export async function setGoalMark(input: GoalMarkSetInput): Promise<GoalMarkSetResult> {
+  const parsed = parseWith(goalMarkSetInputSchema, input, "The goal mark could not be saved.");
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.goalMarks.set(parsed);
+  }
+
+  return goalMarkSetResultSchema.parse(
+    await requestDevelopmentApi(
+      DEVELOPMENT_API_GOAL_MARKS_PATH,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      },
+      "The goal mark could not be saved.",
     ),
   );
 }

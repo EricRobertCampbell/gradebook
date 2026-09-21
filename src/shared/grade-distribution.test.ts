@@ -274,15 +274,18 @@ function studentRow(
   return {
     student: studentFixture(id, firstName),
     coursePercent: null,
+    courseGoalMark: null,
     categories: [
       {
         categoryId: 10,
         percent: null,
+        goalMark: null,
         works: works.filter((work) => work.workId === 1),
         subcategories: [
           {
             subcategoryId: 20,
             percent: null,
+            goalMark: null,
             works: works.filter((work) => work.workId === 2),
           },
         ],
@@ -317,6 +320,7 @@ function countedGrade(workId: number, studentId: number, percent: number): Stude
       notes: "",
       status: "counted",
     },
+    goalMark: null,
   };
 }
 
@@ -335,6 +339,7 @@ function nhiGrade(workId: number, studentId: number): StudentWorkGrade {
       notes: "",
       status: "nhi",
     },
+    goalMark: null,
   };
 }
 
@@ -353,6 +358,7 @@ function exemptGrade(workId: number, studentId: number): StudentWorkGrade {
       notes: "",
       status: "exempt",
     },
+    goalMark: null,
   };
 }
 
@@ -362,5 +368,6 @@ function missingGrade(workId: number): StudentWorkGrade {
     percent: null,
     adjustments: [],
     assessment: null,
+    goalMark: null,
   };
 }

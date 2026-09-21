@@ -62,6 +62,9 @@ const gradebookApi: GradebookApi = {
     upsert: (input) => invoke(ipcChannels.assessmentUpsert, input),
     delete: (input) => invoke(ipcChannels.assessmentDelete, input),
   },
+  goalMarks: {
+    set: (input) => invoke(ipcChannels.goalMarkSet, input),
+  },
   adjustments: {
     create: (input) => invoke(ipcChannels.adjustmentCreate, input),
     update: (input) => invoke(ipcChannels.adjustmentUpdate, input),

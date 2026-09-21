@@ -7,6 +7,7 @@ import {
   sqliteTable,
   text,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 export const appMetadata = sqliteTable("app_metadata", {
@@ -147,6 +148,46 @@ export const assessments = sqliteTable(
     status: text("status").notNull(),
   },
   (table) => [unique("assessments_work_student_unique").on(table.workId, table.studentId)],
+);
+
+export const goalMarks = sqliteTable(
+  "goal_marks",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    classId: integer("class_id").references(() => classes.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+    subcategoryId: integer("subcategory_id").references(() => subcategories.id, {
+      onDelete: "cascade",
+    }),
+    workId: integer("work_id").references(() => works.id, { onDelete: "cascade" }),
+    goalMark: real("goal_mark").notNull(),
+  },
+  (table) => [
+    check(
+      "goal_marks_one_target",
+      sql`(
+        (${table.classId} IS NOT NULL AND ${table.categoryId} IS NULL AND ${table.subcategoryId} IS NULL AND ${table.workId} IS NULL)
+        OR (${table.classId} IS NULL AND ${table.categoryId} IS NOT NULL AND ${table.subcategoryId} IS NULL AND ${table.workId} IS NULL)
+        OR (${table.classId} IS NULL AND ${table.categoryId} IS NULL AND ${table.subcategoryId} IS NOT NULL AND ${table.workId} IS NULL)
+        OR (${table.classId} IS NULL AND ${table.categoryId} IS NULL AND ${table.subcategoryId} IS NULL AND ${table.workId} IS NOT NULL)
+      )`,
+    ),
+    uniqueIndex("goal_marks_student_class_unique")
+      .on(table.studentId, table.classId)
+      .where(sql`${table.classId} IS NOT NULL`),
+    uniqueIndex("goal_marks_student_category_unique")
+      .on(table.studentId, table.categoryId)
+      .where(sql`${table.categoryId} IS NOT NULL`),
+    uniqueIndex("goal_marks_student_subcategory_unique")
+      .on(table.studentId, table.subcategoryId)
+      .where(sql`${table.subcategoryId} IS NOT NULL`),
+    uniqueIndex("goal_marks_student_work_unique")
+      .on(table.studentId, table.workId)
+      .where(sql`${table.workId} IS NOT NULL`),
+  ],
 );
 
 export const adjustments = sqliteTable("adjustments", {

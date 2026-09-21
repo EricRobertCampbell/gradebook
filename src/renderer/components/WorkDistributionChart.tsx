@@ -1,6 +1,7 @@
 import { init, type ECharts, type EChartsOption } from "echarts";
 import { useEffect, useRef } from "react";
 import type { DistributionBin, WorkDistribution } from "../../shared/grade-distribution";
+import { goalMarkAxisPercent } from "../../shared/grades";
 import { chartColours, type ChartColours } from "../chart-colours";
 import {
   axisPercentLabel,
@@ -12,9 +13,11 @@ import "./WorkDistributionChart.css";
 export function WorkDistributionChart({
   distribution,
   highlightedStudentId,
+  goalMark,
 }: {
   distribution: WorkDistribution;
   highlightedStudentId?: number;
+  goalMark?: number | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ECharts | null>(null);
@@ -42,17 +45,17 @@ export function WorkDistributionChart({
 
   useEffect(() => {
     chartRef.current?.setOption(
-      echartsOption(distribution, chartColours(), highlightedStudentId),
+      echartsOption(distribution, chartColours(), highlightedStudentId, goalMark),
       true,
     );
-  }, [distribution, highlightedStudentId]);
+  }, [distribution, highlightedStudentId, goalMark]);
 
   return (
     <div
       ref={containerRef}
       className="work-distribution-chart"
       role="img"
-      aria-label={chartAriaLabel(highlightedStudentId)}
+      aria-label={chartAriaLabel(highlightedStudentId, goalMark)}
     />
   );
 }
@@ -61,6 +64,7 @@ function echartsOption(
   distribution: WorkDistribution,
   colours: ChartColours,
   highlightedStudentId?: number,
+  goalMark?: number | null,
 ): EChartsOption {
   const cutoffPercent = distribution.cutoff * 100;
 
@@ -138,7 +142,7 @@ function echartsOption(
             fontSize: 11,
             position: "insideEndTop",
           },
-          data: verticalMarks(cutoffPercent, colours),
+          data: verticalMarks(cutoffPercent, colours, goalMarkAxisPercent(goalMark)),
         },
       },
       {
@@ -159,20 +163,37 @@ function echartsOption(
 function verticalMarks(
   cutoffPercent: number,
   colours: ChartColours,
+  goalPercent: number | null,
 ): Array<{
   xAxis: number;
   name: string;
   label: { formatter: string };
   lineStyle: { color: string; type: "solid" | "dashed" | "dotted"; width: number };
 }> {
-  return [
+  const marks: Array<{
+    xAxis: number;
+    name: string;
+    label: { formatter: string };
+    lineStyle: { color: string; type: "solid" | "dashed" | "dotted"; width: number };
+  }> = [
     {
       xAxis: cutoffPercent,
       name: "Cutoff",
       label: { formatter: "Cutoff" },
-      lineStyle: { color: colours.cutoff, type: "dashed" as const, width: 1.5 },
+      lineStyle: { color: colours.cutoff, type: "dashed", width: 1.5 },
     },
   ];
+
+  if (goalPercent !== null) {
+    marks.push({
+      xAxis: goalPercent,
+      name: "Goal",
+      label: { formatter: "Goal" },
+      lineStyle: { color: colours.goal, type: "solid", width: 2 },
+    });
+  }
+
+  return marks;
 }
 
 function tooltipHtml(
@@ -291,12 +312,15 @@ function isHighlightedBin(bin: DistributionBin, highlightedStudentId?: number): 
   );
 }
 
-function chartAriaLabel(highlightedStudentId?: number): string {
+function chartAriaLabel(highlightedStudentId?: number, goalMark?: number | null): string {
+  const goal = goalMarkAxisPercent(goalMark);
+  const goalText = goal === null ? "" : `, with a goal line at ${goal}%`;
+
   if (highlightedStudentId === undefined) {
-    return "Score distribution as a histogram with a density curve";
+    return `Score distribution as a histogram with a density curve${goalText}`;
   }
 
-  return "Score distribution as a histogram with a density curve, with this student's bin highlighted";
+  return `Score distribution as a histogram with a density curve, with this student's bin highlighted${goalText}`;
 }
 
 function escapeHtml(value: string): string {

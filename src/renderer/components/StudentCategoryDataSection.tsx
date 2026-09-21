@@ -6,6 +6,7 @@ import {
   listCategoryScopes,
   type CategoryScopeOption,
 } from "../../shared/grade-distribution";
+import { categoryGoalMark, subcategoryGoalMark, workGoalMark } from "../../shared/goal-marks";
 import type { ClassGradebook, GradeCategory, GradeWork, Student } from "../../shared/ipc";
 import { parseRouteId } from "../paths";
 import { SelectField } from "./common/SelectField";
@@ -45,7 +46,8 @@ export function StudentCategoryDataSection({
         title={category.name}
         emptyMessage="No countable marks for this category yet. Enter grades in the class table."
         marks={countableMarksForCategory(gradebook, category.id)}
-        student={student}
+        highlightedStudentId={student.id}
+        goalMark={categoryGoalMark(gradebook, student.id, category.id)}
       />
 
       {scopes.length === 0 ? (
@@ -76,7 +78,8 @@ export function StudentCategoryDataSection({
                 title={subcategory.name}
                 emptyMessage="No countable marks for this sub-category yet. Enter grades in the class table."
                 marks={countableMarksForSubcategory(gradebook, category.id, subcategory.id)}
-                student={student}
+                highlightedStudentId={student.id}
+                goalMark={subcategoryGoalMark(gradebook, student.id, subcategory.id)}
               />
               <div className="student-subcategory-work">
                 <SelectField
@@ -100,13 +103,19 @@ export function StudentCategoryDataSection({
                   <WorkDistributionPanel
                     work={selectedWork}
                     gradebook={gradebook}
-                    student={student}
+                    highlightedStudentId={student.id}
+                    goalMark={workGoalMark(gradebook, student.id, selectedWork.id)}
                   />
                 ) : null}
               </div>
             </div>
           ) : selectedWork ? (
-            <WorkDistributionPanel work={selectedWork} gradebook={gradebook} student={student} />
+            <WorkDistributionPanel
+              work={selectedWork}
+              gradebook={gradebook}
+              highlightedStudentId={student.id}
+              goalMark={workGoalMark(gradebook, student.id, selectedWork.id)}
+            />
           ) : null}
         </div>
       )}

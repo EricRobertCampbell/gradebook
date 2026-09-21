@@ -184,6 +184,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     notes,
   }),
   deleteAdjustment: async () => ({ deleted: true }),
+  setGoalMark: async ({ goalMark }) => ({ goalMark }),
 };
 
 describe("handleDevelopmentApiRequest", () => {

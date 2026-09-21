@@ -49,6 +49,7 @@ export const ipcChannels = {
   subcategoryReorderWorks: "subcategory:reorderWorks",
   assessmentUpsert: "assessment:upsert",
   assessmentDelete: "assessment:delete",
+  goalMarkSet: "goalMark:set",
   adjustmentCreate: "adjustment:create",
   adjustmentUpdate: "adjustment:update",
   adjustmentDelete: "adjustment:delete",
@@ -470,17 +471,20 @@ export const studentWorkGradeSchema = z.object({
   assessment: assessmentSchema.nullable(),
   adjustments: z.array(adjustmentSchema),
   percent: z.number().nullable(),
+  goalMark: z.number().nullable(),
 });
 
 export const studentSubcategoryGradeSchema = z.object({
   subcategoryId: z.number().int(),
   percent: z.number().nullable(),
+  goalMark: z.number().nullable(),
   works: z.array(studentWorkGradeSchema),
 });
 
 export const studentCategoryGradeSchema = z.object({
   categoryId: z.number().int(),
   percent: z.number().nullable(),
+  goalMark: z.number().nullable(),
   subcategories: z.array(studentSubcategoryGradeSchema),
   works: z.array(studentWorkGradeSchema),
 });
@@ -488,7 +492,29 @@ export const studentCategoryGradeSchema = z.object({
 export const studentGradeRowSchema = z.object({
   student: studentSchema,
   coursePercent: z.number().nullable(),
+  courseGoalMark: z.number().nullable(),
   categories: z.array(studentCategoryGradeSchema),
+});
+
+export const goalMarkSetInputSchema = z
+  .object({
+    studentId: z.number().int().positive(),
+    classId: z.number().int().positive().nullable().optional(),
+    categoryId: z.number().int().positive().nullable().optional(),
+    subcategoryId: z.number().int().positive().nullable().optional(),
+    workId: z.number().int().positive().nullable().optional(),
+    goalMark: z.number().finite().nullable(),
+  })
+  .refine(
+    (value) =>
+      [value.classId, value.categoryId, value.subcategoryId, value.workId].filter(
+        (id) => id != null,
+      ).length === 1,
+    "A goal mark needs exactly one course, category, sub-category, or work.",
+  );
+
+export const goalMarkSetResultSchema = z.object({
+  goalMark: z.number().nullable(),
 });
 
 export const classGradebookSchema = z.object({
@@ -531,6 +557,8 @@ export type StudentSubcategoryGrade = z.infer<typeof studentSubcategoryGradeSche
 export type StudentCategoryGrade = z.infer<typeof studentCategoryGradeSchema>;
 export type StudentGradeRow = z.infer<typeof studentGradeRowSchema>;
 export type ClassGradebook = z.infer<typeof classGradebookSchema>;
+export type GoalMarkSetInput = z.infer<typeof goalMarkSetInputSchema>;
+export type GoalMarkSetResult = z.infer<typeof goalMarkSetResultSchema>;
 
 export const ipcContracts = {
   [ipcChannels.databaseGetStatus]: {
@@ -716,6 +744,10 @@ export const ipcContracts = {
   [ipcChannels.assessmentDelete]: {
     input: assessmentLookupInputSchema,
     output: deleteResultSchema,
+  },
+  [ipcChannels.goalMarkSet]: {
+    input: goalMarkSetInputSchema,
+    output: goalMarkSetResultSchema,
   },
   [ipcChannels.adjustmentCreate]: {
     input: adjustmentCreateInputSchema,

@@ -6,6 +6,7 @@ import {
   upsertAssessment,
 } from "./database/assessments";
 import { getClassGradebook } from "./database/gradebook";
+import { setGoalMark } from "./database/goal-marks";
 import {
   copyCategory,
   copySubcategory,
@@ -48,6 +49,7 @@ export function gradingApiHandlers(getDb: () => GradebookDatabase): GradingDevel
     reorderSubcategoryWorks: (input) => reorderSubcategoryWorks(getDb(), input),
     upsertAssessment: (input) => upsertAssessment(getDb(), input),
     deleteAssessment: (input) => deleteAssessment(getDb(), input),
+    setGoalMark: (input) => setGoalMark(getDb(), input),
     createAdjustment: (input) => createAdjustment(getDb(), input),
     updateAdjustment: (input) => updateAdjustment(getDb(), input),
     deleteAdjustment: (input) => deleteAdjustment(getDb(), input),
