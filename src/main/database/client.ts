@@ -22,7 +22,6 @@ export function initialiseDatabase(options: InitialiseDatabaseOptions): Initiali
   }
 
   const sqlite = new Database(options.databasePath);
-  sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");
 
   if (options.databasePath !== ":memory:") {
@@ -31,7 +30,17 @@ export function initialiseDatabase(options: InitialiseDatabaseOptions): Initiali
 
   const db = drizzle(sqlite);
 
-  migrate(db, { migrationsFolder: options.migrationsFolder });
+  // Drizzle runs every pending migration inside one transaction. SQLite ignores
+  // PRAGMA foreign_keys until that transaction commits, so a migration that
+  // rebuilds a table would cascade-delete the rows that reference it.
+  sqlite.pragma("foreign_keys = OFF");
+  try {
+    migrate(db, { migrationsFolder: options.migrationsFolder });
+  } finally {
+    sqlite.pragma("foreign_keys = ON");
+  }
+
+  assertForeignKeysHold(sqlite);
   ensureWorkDateColumn(sqlite);
   ensureStructureSortOrder(sqlite);
 
@@ -44,6 +53,18 @@ export async function bootstrapDatabase(
   const initialised = initialiseDatabase(options);
   await ensureDatabaseStatusMetadata(initialised.db);
   return initialised;
+}
+
+function assertForeignKeysHold(sqlite: Database.Database): void {
+  const rows: unknown = sqlite.pragma("foreign_key_check");
+
+  if (!Array.isArray(rows)) {
+    throw new Error("The database foreign keys could not be checked.");
+  }
+
+  if (rows.length > 0) {
+    throw new Error("The database migration left foreign key references that do not match.");
+  }
 }
 
 function ensureWorkDateColumn(sqlite: Database.Database): void {
