@@ -15,11 +15,12 @@ Orchestrate the specialized review skills. Do not restate their checklists here.
 4. Read each chosen skill and every reference it names. Apply those checks to the diff.
 5. Always include [general-review](../general-review/SKILL.md). It checks correctness, maintainability, and architecture guidance.
 6. Check user-facing error messages. See [User-facing error messages](#user-facing-error-messages).
-7. Merge the findings into one list. Use the severity scale in [references/findings.md](references/findings.md).
-8. Drop duplicate comments. When two reviews report the same issue, keep one finding, use the higher severity, and name both sources.
-9. Report only issues that are actionable and reasonably well-supported.
-10. Distinguish defects from suggestions.
-11. Number the consolidated findings from 1, in the priority order in [references/findings.md](references/findings.md). Continue that sequence for optional suggestions. The reader uses these numbers to say which items to address or ignore.
+7. When the diff changes the database schema or a migration, evaluate it against existing data. See [Schema changes and existing data](#schema-changes-and-existing-data).
+8. Merge the findings into one list. Use the severity scale in [references/findings.md](references/findings.md).
+9. Drop duplicate comments. When two reviews report the same issue, keep one finding, use the higher severity, and name both sources.
+10. Report only issues that are actionable and reasonably well-supported.
+11. Distinguish defects from suggestions.
+12. Number the consolidated findings from 1, in the priority order in [references/findings.md](references/findings.md). Continue that sequence for optional suggestions. The reader uses these numbers to say which items to address or ignore.
 
 ## Which reviews to run
 
@@ -39,6 +40,10 @@ Specialized reviews can be invoked on their own, for example `/backend-review` o
 ## User-facing error messages
 
 Any user-facing error message should be descriptive and provide a set of next steps. The message should say what went wrong and what the user can do next. A message that only names the failure, or that gives no next steps, is Medium.
+
+## Schema changes and existing data
+
+When the diff changes `src/main/database/schema.ts` or SQL under `drizzle/`, evaluate the migration in light of data that already exists. Confirm that existing rows, column values, and relationships survive, including table rebuilds that copy rows into a new table. A migration that drops, truncates, rejects, or fails to copy existing data is Critical, unless that data loss is an explicit part of the feature.
 
 ## Output
 

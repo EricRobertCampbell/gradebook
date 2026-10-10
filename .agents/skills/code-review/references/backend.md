@@ -34,6 +34,8 @@ Put imports at the top of the file, not inside functions.
 
 Edit `src/main/database/schema.ts`, then generate SQL with `npm run db:generate`. Do not hand-write a schema migration under `drizzle/` when Drizzle Kit can produce it. A schema field, constraint, or index change that ships without the matching generated migration is High.
 
+Evaluate every schema or migration change against data that already exists. Existing rows, column values, and relationships must survive, including table rebuilds that copy rows into a new table. A migration that drops, truncates, rejects, or fails to copy existing data is Critical, unless that data loss is an explicit part of the feature.
+
 Tests use in-memory SQLite or a temporary file, never the development or production database files.
 
 ## Process boundaries

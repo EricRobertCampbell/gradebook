@@ -30,6 +30,7 @@ Established mappings, already used in this repo:
 - A missing test is **Medium**, and only when it can hide a regression. Do not require a test for a trivial change that cannot hide one.
 - A new `as` type assertion (except `as const`) is **High**. See [frontend.md](frontend.md) and [backend.md](backend.md).
 - A Drizzle schema field, constraint, or index change without the matching generated migration under `drizzle/` is **High**. See [backend.md](backend.md).
+- A migration that drops, truncates, rejects, or fails to copy existing data, when that loss is not an explicit part of the feature, is **Critical**. See [backend.md](backend.md).
 - A new IPC channel missing the shared contract, preload method, or main-process handler is **High**. See [backend.md](backend.md).
 - Renderer code that imports Node, Electron, `better-sqlite3`, or Drizzle, or that bypasses `window.gradebook` for database access, is **High**.
 - A user-facing error message that is not descriptive, or that does not provide a set of next steps, is **Medium**.
