@@ -3,6 +3,11 @@
   font-size: 1.25rem;
 }
 
+.work-distribution-chart-label {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 1rem;
+}
+
 .work-distribution-chart-card {
   min-width: 0;
   margin: 0 0 1rem;

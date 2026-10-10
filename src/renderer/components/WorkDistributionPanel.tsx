@@ -5,6 +5,7 @@ import {
 } from "../../shared/grade-distribution";
 import type { ClassGradebook, Work } from "../../shared/ipc";
 import { distributionSummary } from "../work-distribution-tooltip";
+import { RaincloudChart } from "./RaincloudChart";
 import { WorkDistributionChart } from "./WorkDistributionChart";
 import "./WorkDistributionPanel.css";
 
@@ -53,8 +54,17 @@ export function GradeDistributionPanel({
       ) : (
         <>
           <p className="muted">{distributionSummary(distribution)}</p>
+          <h3 className="work-distribution-chart-label">Histogram</h3>
           <div className="work-distribution-chart-card">
             <WorkDistributionChart
+              distribution={distribution}
+              highlightedStudentId={highlightedStudentId}
+              goalMark={goalMark}
+            />
+          </div>
+          <h3 className="work-distribution-chart-label">Raincloud</h3>
+          <div className="work-distribution-chart-card">
+            <RaincloudChart
               distribution={distribution}
               highlightedStudentId={highlightedStudentId}
               goalMark={goalMark}

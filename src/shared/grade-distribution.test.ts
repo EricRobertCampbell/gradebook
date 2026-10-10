@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { quantile } from "simple-statistics";
 import {
   GRADE_PASS_CUTOFF,
+  boxplotSummary,
   countableCourseMarks,
   countableMarksForCategory,
   countableMarksForSubcategory,
@@ -8,6 +10,8 @@ import {
   findClassWork,
   listCategoryScopes,
   listClassWorks,
+  raincloudAxisPercent,
+  raincloudJitter,
   workDistribution,
 } from "./grade-distribution";
 import type {
@@ -175,6 +179,94 @@ describe("workDistribution", () => {
     expect(distribution.density.every((point) => point.count >= 0)).toBe(true);
     expect(distribution.density[0]?.axisPercent).toBe(0);
     expect(distribution.density.at(-1)?.axisPercent).toBe(100);
+  });
+});
+
+describe("boxplotSummary", () => {
+  it("uses the distribution median and keeps an out-of-range ratio", () => {
+    const percents = [0.2, 0.4, 0.7, 0.9];
+    const marks = percents.map((percent, index) => workMark("Student", percent, index + 1));
+    const box = boxplotSummary(percents);
+    const q1 = quantile(percents, 0.25);
+    const q3 = quantile(percents, 0.75);
+    const iqr = q3 - q1;
+
+    expect(box).toEqual({
+      low: Math.min(...percents.filter((percent) => percent >= q1 - 1.5 * iqr)),
+      q1,
+      median: workDistribution(marks).median,
+      q3,
+      high: Math.max(...percents.filter((percent) => percent <= q3 + 1.5 * iqr)),
+    });
+  });
+
+  it("snaps whiskers to observed marks inside the 1.5 IQR fence", () => {
+    const percents = [0.05, 0.4, 0.45, 0.5, 0.55, 0.6, 0.95];
+    const box = boxplotSummary(percents);
+    const q1 = quantile(percents, 0.25);
+    const q3 = quantile(percents, 0.75);
+    const iqr = q3 - q1;
+    const lowFence = q1 - 1.5 * iqr;
+    const highFence = q3 + 1.5 * iqr;
+
+    expect(box?.low).toBe(Math.min(...percents.filter((percent) => percent >= lowFence)));
+    expect(box?.high).toBe(Math.max(...percents.filter((percent) => percent <= highFence)));
+    expect(box?.low).not.toBe(Math.min(...percents));
+    expect(box?.high).not.toBe(Math.max(...percents));
+  });
+
+  it("returns a degenerate box for one mark and for zero spread", () => {
+    expect(boxplotSummary([0.7])).toEqual({
+      low: 0.7,
+      q1: 0.7,
+      median: 0.7,
+      q3: 0.7,
+      high: 0.7,
+    });
+    expect(boxplotSummary([0.4, 0.4])).toEqual({
+      low: 0.4,
+      q1: 0.4,
+      median: 0.4,
+      q3: 0.4,
+      high: 0.4,
+    });
+  });
+
+  it("returns no box for an empty sample", () => {
+    expect(boxplotSummary([])).toBeNull();
+  });
+
+  it("keeps ratios outside 0–1 on the summary", () => {
+    const percents = [-0.25, 0.5, 1.5];
+    const box = boxplotSummary(percents);
+
+    expect(box?.low).toBeLessThan(0);
+    expect(box?.high).toBeGreaterThan(1);
+    expect(box?.q1).toBe(quantile(percents, 0.25));
+    expect(box?.q3).toBe(quantile(percents, 0.75));
+  });
+});
+
+describe("raincloudAxisPercent", () => {
+  it("maps ratios inside 0–1 onto 0–100 and pins the rest to the edges", () => {
+    expect(raincloudAxisPercent(0.6)).toBe(60);
+    expect(raincloudAxisPercent(0)).toBe(0);
+    expect(raincloudAxisPercent(1)).toBe(100);
+    expect(raincloudAxisPercent(-0.2)).toBe(0);
+    expect(raincloudAxisPercent(1.4)).toBe(100);
+  });
+});
+
+describe("raincloudJitter", () => {
+  it("spreads tied drawn positions by student id and leaves unique positions centred", () => {
+    const tied = [workMark("Blair", 0.5, 2), workMark("Alex", 0.5, 1)];
+    const unique = [workMark("Alex", 0.2, 1), workMark("Blair", 0.8, 2)];
+    const edges = [workMark("Blair", -0.2, 2), workMark("Alex", -0.5, 1)];
+
+    expect(raincloudJitter(tied)).toEqual([1, -1]);
+    expect(raincloudJitter(unique)).toEqual([0, 0]);
+    expect(raincloudJitter(edges)).toEqual([1, -1]);
+    expect(raincloudJitter(tied)).toEqual(raincloudJitter(tied));
   });
 });
 
