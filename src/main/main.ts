@@ -203,6 +203,7 @@ function registerDatabaseIpc(): void {
   registerIpcHandler(ipcChannels.subcategoryReorderWorks, grading.reorderSubcategoryWorks);
   registerIpcHandler(ipcChannels.assessmentUpsert, grading.upsertAssessment);
   registerIpcHandler(ipcChannels.assessmentDelete, grading.deleteAssessment);
+  registerIpcHandler(ipcChannels.assessmentClearMark, grading.clearAssessmentMark);
   registerIpcHandler(ipcChannels.goalMarkSet, grading.setGoalMark);
   registerIpcHandler(ipcChannels.excuseSet, grading.setExcuse);
   registerIpcHandler(ipcChannels.excuseSetAll, grading.setAllExcuses);

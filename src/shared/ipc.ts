@@ -49,6 +49,7 @@ export const ipcChannels = {
   subcategoryReorderWorks: "subcategory:reorderWorks",
   assessmentUpsert: "assessment:upsert",
   assessmentDelete: "assessment:delete",
+  assessmentClearMark: "assessment:clear-mark",
   goalMarkSet: "goalMark:set",
   excuseSet: "excuse:set",
   excuseSetAll: "excuse:setAll",
@@ -288,7 +289,7 @@ export const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a da
 
 export const optionalIsoDateSchema = z.union([isoDateSchema, z.literal(""), z.null()]).optional();
 
-export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi"]);
+export const assessmentStatusSchema = z.enum(["counted", "exempt", "nhi", "unmarked"]);
 
 export const categoryFieldsSchema = z.object({
   name: requiredNameSchema,
@@ -412,13 +413,23 @@ export const assessmentUpsertInputSchema = z.object({
   score: z.number().finite().nullable(),
   date: isoDateSchema.optional(),
   weight: weightSchema.optional(),
-  notes: z.string().optional(),
+  notes: z.string().trim().optional(),
   status: assessmentStatusSchema.optional(),
 });
 
 export const assessmentLookupInputSchema = z.object({
   workId: z.number().int().positive(),
   studentId: z.number().int().positive(),
+});
+
+export const assessmentClearMarkInputSchema = assessmentLookupInputSchema.extend({
+  notes: z.string().trim().optional(),
+  date: isoDateSchema.optional(),
+  weight: weightSchema.optional(),
+});
+
+export const assessmentClearMarkResultSchema = z.object({
+  kept: z.boolean(),
 });
 
 export const adjustmentFieldsSchema = z.object({
@@ -580,6 +591,8 @@ export type Assessment = z.infer<typeof assessmentSchema>;
 export type AssessmentStatus = z.infer<typeof assessmentStatusSchema>;
 export type AssessmentUpsertInput = z.infer<typeof assessmentUpsertInputSchema>;
 export type AssessmentLookupInput = z.infer<typeof assessmentLookupInputSchema>;
+export type AssessmentClearMarkInput = z.infer<typeof assessmentClearMarkInputSchema>;
+export type AssessmentClearMarkResult = z.infer<typeof assessmentClearMarkResultSchema>;
 export type Adjustment = z.infer<typeof adjustmentSchema>;
 export type AdjustmentFields = z.infer<typeof adjustmentFieldsSchema>;
 export type AdjustmentCreateInput = z.infer<typeof adjustmentCreateInputSchema>;
@@ -784,6 +797,10 @@ export const ipcContracts = {
   [ipcChannels.assessmentDelete]: {
     input: assessmentLookupInputSchema,
     output: deleteResultSchema,
+  },
+  [ipcChannels.assessmentClearMark]: {
+    input: assessmentClearMarkInputSchema,
+    output: assessmentClearMarkResultSchema,
   },
   [ipcChannels.goalMarkSet]: {
     input: goalMarkSetInputSchema,

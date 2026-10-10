@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assessmentCountsTowardAverage,
+  assessmentHasVisibleMark,
   assessmentPercent,
   assessmentStatusCode,
   formatGradePercent,
@@ -88,10 +89,20 @@ describe("formatGradePercent", () => {
 });
 
 describe("assessmentCountsTowardAverage", () => {
-  it("counts ordinary and not-handed-in marks, but not exemptions", () => {
+  it("counts ordinary and not-handed-in marks, but not exemptions or unmarked notes", () => {
     expect(assessmentCountsTowardAverage("counted")).toBe(true);
     expect(assessmentCountsTowardAverage("nhi")).toBe(true);
     expect(assessmentCountsTowardAverage("exempt")).toBe(false);
+    expect(assessmentCountsTowardAverage("unmarked")).toBe(false);
+  });
+});
+
+describe("assessmentHasVisibleMark", () => {
+  it("treats counted, exempt, and not-handed-in as marks", () => {
+    expect(assessmentHasVisibleMark("counted")).toBe(true);
+    expect(assessmentHasVisibleMark("exempt")).toBe(true);
+    expect(assessmentHasVisibleMark("nhi")).toBe(true);
+    expect(assessmentHasVisibleMark("unmarked")).toBe(false);
   });
 });
 
@@ -136,6 +147,7 @@ describe("assessmentStatusCode", () => {
     expect(assessmentStatusCode("exempt")).toBe("E");
     expect(assessmentStatusCode("nhi")).toBe("NHI");
     expect(assessmentStatusCode("counted")).toBeNull();
+    expect(assessmentStatusCode("unmarked")).toBeNull();
   });
 });
 
@@ -249,6 +261,8 @@ describe("grade cell commit", () => {
 
   it("deletes an existing mark when the cell is emptied and ignores an empty new cell", () => {
     expect(gradeCellCommit({ status: "counted", score: 4 }, "")).toEqual({ kind: "delete" });
+    expect(gradeCellCommit({ status: "unmarked", score: null }, "")).toEqual({ kind: "ignore" });
+    expect(gradeCellCommit({ status: "exempt", score: null }, "")).toEqual({ kind: "delete" });
     expect(gradeCellCommit(null, "")).toEqual({ kind: "ignore" });
     expect(gradeCellCommit(null, "abc")).toEqual({ kind: "invalid" });
   });

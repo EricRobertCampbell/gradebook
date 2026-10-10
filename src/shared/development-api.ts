@@ -123,6 +123,10 @@ export function workStudentAssessmentPath(workId: number, studentId: number): st
   return `${workPath(workId)}/students/${studentId}/assessment`;
 }
 
+export function workStudentAssessmentClearMarkPath(workId: number, studentId: number): string {
+  return `${workStudentAssessmentPath(workId, studentId)}/clear-mark`;
+}
+
 export function assessmentAdjustmentsPath(assessmentId: number): string {
   return `${DEVELOPMENT_API_ASSESSMENTS_PATH}/${assessmentId}/adjustments`;
 }

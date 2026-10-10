@@ -1,6 +1,7 @@
 import {
   createAdjustment,
   deleteAdjustment,
+  clearAssessmentMark,
   deleteAssessment,
   updateAdjustment,
   upsertAssessment,
@@ -50,6 +51,7 @@ export function gradingApiHandlers(getDb: () => GradebookDatabase): GradingDevel
     reorderSubcategoryWorks: (input) => reorderSubcategoryWorks(getDb(), input),
     upsertAssessment: (input) => upsertAssessment(getDb(), input),
     deleteAssessment: (input) => deleteAssessment(getDb(), input),
+    clearAssessmentMark: (input) => clearAssessmentMark(getDb(), input),
     setGoalMark: (input) => setGoalMark(getDb(), input),
     setExcuse: (input) => setExcuse(getDb(), input),
     setAllExcuses: (input) => setAllExcuses(getDb(), input),

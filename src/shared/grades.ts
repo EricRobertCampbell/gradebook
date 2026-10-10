@@ -78,6 +78,10 @@ export function workCountsTowardAverage(work: {
   return assessmentCountsTowardAverage(work.assessment.status);
 }
 
+export function assessmentHasVisibleMark(status: string): boolean {
+  return status === "counted" || status === "exempt" || status === "nhi";
+}
+
 export function assessmentStatusCode(status: string): string | null {
   for (const mark of SPECIAL_MARKS) {
     if (mark.status === status) {
@@ -188,7 +192,11 @@ export function gradeCellCommit(
   const trimmed = value.trim();
 
   if (trimmed === "") {
-    return current ? { kind: "delete" } : { kind: "ignore" };
+    if (!current || !assessmentHasVisibleMark(current.status)) {
+      return { kind: "ignore" };
+    }
+
+    return { kind: "delete" };
   }
 
   const specialStatus = parseSpecialMark(trimmed);

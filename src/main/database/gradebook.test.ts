@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAdjustment, deleteAssessment, upsertAssessment } from "./assessments";
+import {
+  clearAssessmentMark,
+  createAdjustment,
+  deleteAssessment,
+  upsertAssessment,
+} from "./assessments";
 import { setExcuse } from "./excuses";
 import { setGoalMark } from "./goal-marks";
 import { bootstrapDatabase } from "./client";
@@ -345,6 +350,325 @@ describe("class gradebook", () => {
         gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0]?.assessment,
       ).toBeNull();
       expect(gradebook.students[0]?.coursePercent).toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("stores a note without a counted mark and keeps it when a mark is added", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const other = await createStudent(db, {
+        firstName: "Grace",
+        lastName: "Hopper",
+        preferredName: "",
+        notes: "",
+        email: "grace@school.test",
+      });
+      await addStudentToClass(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+        studentId: other.id,
+      });
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 4,
+        notes: "  Late  ",
+        status: "unmarked",
+      });
+
+      const saved = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const noteOnly = workGradeFor(saved, setup.student.id);
+      const otherGrade = workGradeFor(saved, other.id);
+
+      expect(noteOnly?.assessment).toMatchObject({
+        notes: "Late",
+        status: "unmarked",
+        score: null,
+      });
+      expect(noteOnly?.percent).toBeNull();
+      expect(
+        saved.students.find((row) => row.student.id === setup.student.id)?.coursePercent,
+      ).toBeNull();
+      expect(otherGrade?.assessment).toBeNull();
+
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+        status: "counted",
+      });
+      const marked = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const markedGrade = workGradeFor(marked, setup.student.id);
+
+      expect(markedGrade?.assessment).toMatchObject({ notes: "Late", status: "counted", score: 8 });
+      expect(markedGrade?.percent).toBe(0.8);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("rejects an unmarked assessment when the note is empty", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const lookup = { workId: setup.work.id, studentId: setup.student.id };
+
+      await expect(
+        upsertAssessment(db, { ...lookup, score: null, status: "unmarked" }),
+      ).rejects.toThrow("Enter a note.");
+      await expect(
+        upsertAssessment(db, { ...lookup, score: null, notes: "   ", status: "unmarked" }),
+      ).rejects.toThrow("Enter a note.");
+
+      const empty = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(workGradeFor(empty, setup.student.id)?.assessment).toBeNull();
+
+      await upsertAssessment(db, { ...lookup, score: null, notes: "Late", status: "unmarked" });
+      const kept = await upsertAssessment(db, { ...lookup, score: null, status: "unmarked" });
+      expect(kept).toMatchObject({ notes: "Late", status: "unmarked", score: null });
+
+      await expect(
+        upsertAssessment(db, { ...lookup, score: null, notes: "   ", status: "unmarked" }),
+      ).rejects.toThrow("Enter a note.");
+      const still = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(workGradeFor(still, setup.student.id)?.assessment).toMatchObject({
+        notes: "Late",
+        status: "unmarked",
+      });
+
+      await upsertAssessment(db, { ...lookup, score: 8, notes: "Away", status: "counted" });
+      const fromCounted = await upsertAssessment(db, {
+        ...lookup,
+        score: null,
+        status: "unmarked",
+      });
+      expect(fromCounted).toMatchObject({ notes: "Away", status: "unmarked", score: null });
+
+      await upsertAssessment(db, { ...lookup, score: 8, notes: "", status: "counted" });
+      await expect(
+        upsertAssessment(db, { ...lookup, score: null, status: "unmarked" }),
+      ).rejects.toThrow("Enter a note.");
+      const counted = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(workGradeFor(counted, setup.student.id)?.assessment).toMatchObject({
+        notes: "",
+        status: "counted",
+        score: 8,
+      });
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("clears a visible mark, keeps the note, and removes adjustments", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const counted = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+        notes: "Late",
+      });
+      await createAdjustment(db, {
+        assessmentId: counted.id,
+        percentChange: null,
+        rawChange: 1,
+        description: "Bonus",
+        notes: "",
+      });
+      await clearAssessmentMark(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+      });
+
+      const cleared = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const clearedGrade = workGradeFor(cleared, setup.student.id);
+
+      expect(clearedGrade?.assessment).toMatchObject({
+        notes: "Late",
+        status: "unmarked",
+        score: null,
+      });
+      expect(clearedGrade?.adjustments).toEqual([]);
+      expect(clearedGrade?.percent).toBeNull();
+      expect(cleared.students[0]?.coursePercent).toBeNull();
+
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 6,
+        notes: "Away",
+        status: "exempt",
+      });
+      await clearAssessmentMark(db, { workId: setup.work.id, studentId: setup.student.id });
+      const exemptCleared = workGradeFor(
+        await getClassGradebook(db, { schoolYearName: "2024-2025", internalName: "sci-9" }),
+        setup.student.id,
+      );
+      expect(exemptCleared?.assessment).toMatchObject({
+        notes: "Away",
+        status: "unmarked",
+        score: null,
+      });
+      expect(exemptCleared?.percent).toBeNull();
+
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 6,
+        notes: "Missing",
+        status: "nhi",
+      });
+      await clearAssessmentMark(db, { workId: setup.work.id, studentId: setup.student.id });
+      const nhiCleared = workGradeFor(
+        await getClassGradebook(db, { schoolYearName: "2024-2025", internalName: "sci-9" }),
+        setup.student.id,
+      );
+      expect(nhiCleared?.assessment).toMatchObject({
+        notes: "Missing",
+        status: "unmarked",
+        score: null,
+      });
+      expect(nhiCleared?.percent).toBeNull();
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("deletes an assessment when the cleared mark or note is empty", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+        notes: "",
+      });
+      await clearAssessmentMark(db, { workId: setup.work.id, studentId: setup.student.id });
+
+      const cleared = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(workGradeFor(cleared, setup.student.id)?.assessment).toBeNull();
+
+      const noted = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: null,
+        notes: "Late",
+        status: "unmarked",
+      });
+      await createAdjustment(db, {
+        assessmentId: noted.id,
+        percentChange: 5,
+        rawChange: null,
+        description: "Bonus",
+        notes: "",
+      });
+      const kept = await clearAssessmentMark(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        notes: " Still late ",
+      });
+      const keptGrade = workGradeFor(
+        await getClassGradebook(db, { schoolYearName: "2024-2025", internalName: "sci-9" }),
+        setup.student.id,
+      );
+      expect(kept).toEqual({ kept: true });
+      expect(keptGrade?.assessment?.notes).toBe("Still late");
+      expect(keptGrade?.adjustments).toHaveLength(1);
+      expect(keptGrade?.percent).toBeNull();
+
+      const removed = await clearAssessmentMark(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        notes: "   ",
+      });
+
+      expect(removed).toEqual({ kept: false });
+      const after = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      expect(workGradeFor(after, setup.student.id)?.assessment).toBeNull();
+      expect(workGradeFor(after, setup.student.id)?.adjustments).toEqual([]);
+
+      await expect(
+        clearAssessmentMark(db, {
+          workId: setup.work.id,
+          studentId: setup.student.id,
+          notes: "Late",
+        }),
+      ).rejects.toThrow("That assessment was not found.");
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("keeps the mark and its adjustments when clearing cannot finish", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const counted = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+        notes: "Late",
+      });
+      await createAdjustment(db, {
+        assessmentId: counted.id,
+        percentChange: null,
+        rawChange: 1,
+        description: "Bonus",
+        notes: "",
+      });
+      sqlite.exec(`
+        CREATE TRIGGER fail_assessment_update
+        BEFORE UPDATE ON assessments
+        BEGIN
+          SELECT RAISE(ABORT, 'forced failure');
+        END;
+      `);
+
+      await expect(
+        clearAssessmentMark(db, { workId: setup.work.id, studentId: setup.student.id }),
+      ).rejects.toThrow("forced failure");
+
+      const grade = workGradeFor(
+        await getClassGradebook(db, { schoolYearName: "2024-2025", internalName: "sci-9" }),
+        setup.student.id,
+      );
+      expect(grade?.assessment).toMatchObject({ notes: "Late", status: "counted", score: 8 });
+      expect(grade?.adjustments).toHaveLength(1);
+      expect(grade?.percent).toBe(0.9);
     } finally {
       sqlite.close();
     }
@@ -780,6 +1104,11 @@ async function seedScienceClass(db: Awaited<ReturnType<typeof openTestDatabase>>
   });
 
   return { student, category, subcategory, work };
+}
+
+function workGradeFor(gradebook: Awaited<ReturnType<typeof getClassGradebook>>, studentId: number) {
+  return gradebook.students.find((row) => row.student.id === studentId)?.categories[0]
+    ?.subcategories[0]?.works[0];
 }
 
 async function openTestDatabase() {

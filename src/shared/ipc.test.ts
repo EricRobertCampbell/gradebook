@@ -382,3 +382,34 @@ describe("grading contracts", () => {
     );
   });
 });
+
+describe("assessment note contract", () => {
+  it("trims assessment notes and accepts an unmarked clear", () => {
+    expect(
+      ipcContracts[ipcChannels.assessmentUpsert].input.parse({
+        workId: 1,
+        studentId: 2,
+        score: 8,
+        notes: "  Late  ",
+      }),
+    ).toMatchObject({ notes: "Late" });
+    expect(
+      ipcContracts[ipcChannels.assessmentUpsert].input.parse({
+        workId: 1,
+        studentId: 2,
+        score: 8,
+        notes: "   ",
+      }),
+    ).toMatchObject({ notes: "" });
+    expect(
+      ipcContracts[ipcChannels.assessmentClearMark].input.parse({
+        workId: 1,
+        studentId: 2,
+        notes: "  Kept  ",
+      }),
+    ).toEqual({ workId: 1, studentId: 2, notes: "Kept" });
+    expect(ipcContracts[ipcChannels.assessmentClearMark].output.parse({ kept: false })).toEqual({
+      kept: false,
+    });
+  });
+});

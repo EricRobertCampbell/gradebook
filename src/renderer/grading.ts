@@ -21,12 +21,15 @@ import {
   subcategoryWorksPath,
   workCopyPath,
   workPath,
+  workStudentAssessmentClearMarkPath,
   workStudentAssessmentPath,
 } from "../shared/development-api";
 import {
   adjustmentCreateInputSchema,
   adjustmentSchema,
   adjustmentUpdateInputSchema,
+  assessmentClearMarkInputSchema,
+  assessmentClearMarkResultSchema,
   assessmentLookupInputSchema,
   assessmentSchema,
   assessmentUpsertInputSchema,
@@ -58,6 +61,8 @@ import {
   type AdjustmentCreateInput,
   type AdjustmentUpdateInput,
   type Assessment,
+  type AssessmentClearMarkInput,
+  type AssessmentClearMarkResult,
   type AssessmentLookupInput,
   type AssessmentUpsertInput,
   type Category,
@@ -545,6 +550,32 @@ export async function setAllExcuses(input: ExcuseSetAllInput): Promise<ExcuseSet
         body: JSON.stringify({ excused: parsed.excused }),
       },
       "The excuse could not be saved.",
+    ),
+  );
+}
+
+export async function clearAssessmentMark(
+  input: AssessmentClearMarkInput,
+): Promise<AssessmentClearMarkResult> {
+  const parsed = parseWith(assessmentClearMarkInputSchema, input, "The mark could not be cleared.");
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.assessments.clearMark(parsed);
+  }
+
+  return assessmentClearMarkResultSchema.parse(
+    await requestDevelopmentApi(
+      workStudentAssessmentClearMarkPath(parsed.workId, parsed.studentId),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notes: parsed.notes,
+          date: parsed.date,
+          weight: parsed.weight,
+        }),
+      },
+      "The mark could not be cleared.",
     ),
   );
 }

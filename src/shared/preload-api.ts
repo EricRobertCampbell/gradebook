@@ -8,6 +8,8 @@ import type {
   AdjustmentCreateInput,
   AdjustmentUpdateInput,
   Assessment,
+  AssessmentClearMarkInput,
+  AssessmentClearMarkResult,
   AssessmentLookupInput,
   AssessmentUpsertInput,
   Category,
@@ -104,6 +106,7 @@ export type GradebookApi = {
   assessments: {
     upsert: (input: AssessmentUpsertInput) => Promise<Assessment>;
     delete: (input: AssessmentLookupInput) => Promise<DeleteResult>;
+    clearMark: (input: AssessmentClearMarkInput) => Promise<AssessmentClearMarkResult>;
   };
   goalMarks: {
     set: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;

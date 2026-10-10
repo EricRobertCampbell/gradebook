@@ -1,5 +1,6 @@
 import {
   adjustmentSchema,
+  assessmentClearMarkResultSchema,
   assessmentSchema,
   categorySchema,
   classGradebookSchema,
@@ -18,6 +19,8 @@ import {
   type AdjustmentCreateInput,
   type AdjustmentUpdateInput,
   type Assessment,
+  type AssessmentClearMarkInput,
+  type AssessmentClearMarkResult,
   type AssessmentLookupInput,
   type AssessmentUpsertInput,
   type Category,
@@ -76,6 +79,7 @@ export type GradingDevelopmentApiHandlers = {
   reorderSubcategoryWorks: (input: SubcategoryReorderWorksInput) => Promise<ReorderResult>;
   upsertAssessment: (input: AssessmentUpsertInput) => Promise<Assessment>;
   deleteAssessment: (input: AssessmentLookupInput) => Promise<DeleteResult>;
+  clearAssessmentMark: (input: AssessmentClearMarkInput) => Promise<AssessmentClearMarkResult>;
   setGoalMark: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;
   setExcuse: (input: ExcuseSetInput) => Promise<ExcuseSetResult>;
   setAllExcuses: (input: ExcuseSetAllInput) => Promise<ExcuseSetAllResult>;
@@ -417,6 +421,27 @@ async function handleRecordGradingRoute(
     }
   }
 
+  if (
+    workApi &&
+    workApi.rest.length === 4 &&
+    workApi.rest[0] === "students" &&
+    workApi.rest[1] &&
+    workApi.rest[2] === "assessment" &&
+    workApi.rest[3] === "clear-mark" &&
+    options.method === "POST"
+  ) {
+    return {
+      statusCode: 200,
+      body: assessmentClearMarkResultSchema.parse(
+        await options.clearAssessmentMark({
+          workId: workApi.id,
+          studentId: readPositiveInt(workApi.rest[1], "That student was not found."),
+          ...readClearMarkFields(options.body),
+        }),
+      ),
+    };
+  }
+
   const assessmentApi = idPath(options.pathname, DEVELOPMENT_API_ASSESSMENTS_PATH);
   if (assessmentApi && assessmentApi.rest.length === 1 && assessmentApi.rest[0] === "adjustments") {
     if (options.method === "POST") {
@@ -592,7 +617,7 @@ function readAssessmentFields(body: unknown): {
   date?: string;
   weight?: number;
   notes?: string;
-  status?: "counted" | "exempt" | "nhi";
+  status?: "counted" | "exempt" | "nhi" | "unmarked";
 } {
   const record = requireObject(body, "A score is required.");
   const fields: {
@@ -600,7 +625,7 @@ function readAssessmentFields(body: unknown): {
     date?: string;
     weight?: number;
     notes?: string;
-    status?: "counted" | "exempt" | "nhi";
+    status?: "counted" | "exempt" | "nhi" | "unmarked";
   } = {
     score: readScoreField(record),
   };
@@ -619,10 +644,37 @@ function readAssessmentFields(body: unknown): {
 
   if ("status" in record && record.status !== undefined) {
     const status = readStringField(record, "status", "A status is required.");
-    if (status !== "counted" && status !== "exempt" && status !== "nhi") {
-      throw new Error("A status must be counted, exempt, or nhi.");
+    if (status !== "counted" && status !== "exempt" && status !== "nhi" && status !== "unmarked") {
+      throw new Error("A status must be counted, exempt, unmarked, or nhi.");
     }
     fields.status = status;
+  }
+
+  return fields;
+}
+
+function readClearMarkFields(body: unknown): {
+  notes?: string;
+  date?: string;
+  weight?: number;
+} {
+  if (body === undefined || body === null) {
+    return {};
+  }
+
+  const record = requireObject(body, "The mark could not be cleared.");
+  const fields: { notes?: string; date?: string; weight?: number } = {};
+
+  if ("notes" in record && record.notes !== undefined) {
+    fields.notes = readStringField(record, "notes", "Notes must be text.");
+  }
+
+  if ("date" in record && record.date !== undefined) {
+    fields.date = readStringField(record, "date", "Enter a date as YYYY-MM-DD.");
+  }
+
+  if ("weight" in record && record.weight !== undefined) {
+    fields.weight = readNumberField(record, "weight", "A weight is required.");
   }
 
   return fields;

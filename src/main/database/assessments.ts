@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
+import { assessmentHasVisibleMark } from "../../shared/grades";
 import {
   adjustmentCreateInputSchema,
   adjustmentUpdateInputSchema,
+  assessmentClearMarkInputSchema,
   assessmentLookupInputSchema,
   assessmentStatusSchema,
   assessmentUpsertInputSchema,
@@ -10,6 +12,8 @@ import {
   type AdjustmentCreateInput,
   type AdjustmentUpdateInput,
   type Assessment,
+  type AssessmentClearMarkInput,
+  type AssessmentClearMarkResult,
   type AssessmentLookupInput,
   type AssessmentUpsertInput,
   type DeleteResult,
@@ -29,10 +33,15 @@ export async function upsertAssessment(
   const { work } = await requireWorkInClass(db, parsed.workId, parsed.studentId);
   const existing = await findAssessment(db, parsed.workId, parsed.studentId);
   const status = parsed.status ?? existing?.status ?? "counted";
-  const score = status === "nhi" ? null : parsed.score;
+  const score = status === "nhi" || status === "unmarked" ? null : parsed.score;
+  const notes = parsed.notes !== undefined ? parsed.notes : (existing?.notes.trim() ?? "");
 
   if (status === "counted" && score === null) {
     throw new Error("Enter a mark.");
+  }
+
+  if (status === "unmarked" && notes === "") {
+    throw new Error("Enter a note.");
   }
 
   if (existing) {
@@ -92,6 +101,43 @@ export async function deleteAssessment(
   }
 
   return { deleted: true };
+}
+
+export async function clearAssessmentMark(
+  db: GradebookDatabase,
+  input: AssessmentClearMarkInput,
+): Promise<AssessmentClearMarkResult> {
+  const parsed = parseClearInput(input);
+  await requireStudent(db, parsed.studentId);
+  const { work } = await requireWorkInClass(db, parsed.workId, parsed.studentId);
+  const existing = await findAssessment(db, parsed.workId, parsed.studentId);
+  const notes = parsed.notes !== undefined ? parsed.notes : (existing?.notes.trim() ?? "");
+  const date = parsed.date ?? existing?.date ?? todayIsoDate();
+  const weight = parsed.weight ?? existing?.weight ?? work.weight;
+
+  if (!existing) {
+    throw new Error("That assessment was not found.");
+  }
+
+  if (!assessmentHasVisibleMark(existing.status)) {
+    if (notes === "") {
+      return removeAssessment(db, existing.id);
+    }
+
+    const updated = await db
+      .update(assessments)
+      .set({ score: null, date, weight, notes, status: "unmarked" })
+      .where(eq(assessments.id, existing.id))
+      .returning();
+
+    if (!updated[0]) {
+      throw new Error("The assessment could not be saved.");
+    }
+
+    return { kept: true };
+  }
+
+  return clearVisibleMark(db, existing.id, { notes, date, weight });
 }
 
 export async function createAdjustment(
@@ -223,6 +269,76 @@ function parseUpsertInput(input: AssessmentUpsertInput): AssessmentUpsertInput {
   }
 
   return result.data;
+}
+
+function parseClearInput(input: AssessmentClearMarkInput): AssessmentClearMarkInput {
+  const result = assessmentClearMarkInputSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new Error(result.error.issues[0]?.message ?? "The mark could not be cleared.");
+  }
+
+  return result.data;
+}
+
+function clearVisibleMark(
+  db: GradebookDatabase,
+  assessmentId: number,
+  fields: { notes: string; date: string; weight: number },
+): AssessmentClearMarkResult {
+  return db.transaction((tx) => {
+    tx.delete(adjustments).where(eq(adjustments.assessmentId, assessmentId)).run();
+
+    if (fields.notes === "") {
+      const deleted = tx
+        .delete(assessments)
+        .where(eq(assessments.id, assessmentId))
+        .returning()
+        .all();
+
+      if (!deleted[0]) {
+        throw new Error("The assessment could not be saved.");
+      }
+
+      return { kept: false };
+    }
+
+    const updated = tx
+      .update(assessments)
+      .set({
+        score: null,
+        date: fields.date,
+        weight: fields.weight,
+        notes: fields.notes,
+        status: "unmarked",
+      })
+      .where(eq(assessments.id, assessmentId))
+      .returning()
+      .all();
+
+    if (!updated[0]) {
+      throw new Error("The assessment could not be saved.");
+    }
+
+    return { kept: true };
+  });
+}
+
+function removeAssessment(db: GradebookDatabase, assessmentId: number): AssessmentClearMarkResult {
+  return db.transaction((tx) => {
+    tx.delete(adjustments).where(eq(adjustments.assessmentId, assessmentId)).run();
+    const deleted = tx
+      .delete(assessments)
+      .where(eq(assessments.id, assessmentId))
+      .returning()
+      .all();
+
+    if (!deleted[0]) {
+      throw new Error("The assessment could not be saved.");
+    }
+
+    return { kept: false };
+  });
 }
 
 function parseLookupInput(input: AssessmentLookupInput): AssessmentLookupInput {
