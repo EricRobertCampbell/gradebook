@@ -270,6 +270,11 @@
   background: color-mix(in srgb, var(--colour-warning) 14%, var(--paper-light));
 }
 
+.grade-cell--exempt-score .grade-score-input,
+.grade-cell--exempt-score .grade-percent {
+  color: var(--colour-secondary-lighter);
+}
+
 .grade-cell--nhi {
   background: color-mix(in srgb, var(--colour-error) 12%, var(--paper-light));
 }

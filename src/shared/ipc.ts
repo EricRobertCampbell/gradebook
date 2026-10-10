@@ -397,7 +397,7 @@ export const assessmentSchema = z.object({
   id: z.number().int(),
   workId: z.number().int(),
   studentId: z.number().int(),
-  score: z.number(),
+  score: z.number().nullable(),
   date: z.string(),
   weight: z.number(),
   notes: z.string(),
@@ -407,7 +407,7 @@ export const assessmentSchema = z.object({
 export const assessmentUpsertInputSchema = z.object({
   workId: z.number().int().positive(),
   studentId: z.number().int().positive(),
-  score: z.number().finite(),
+  score: z.number().finite().nullable(),
   date: isoDateSchema.optional(),
   weight: weightSchema.optional(),
   notes: z.string().optional(),

@@ -93,6 +93,10 @@
   background: color-mix(in srgb, var(--colour-warning) 14%, var(--paper-light));
 }
 
+.individual-report-exempt-score {
+  color: var(--colour-secondary-lighter);
+}
+
 .individual-report-work--nhi th,
 .individual-report-work--nhi td {
   background: color-mix(in srgb, var(--colour-error) 12%, var(--paper-light));

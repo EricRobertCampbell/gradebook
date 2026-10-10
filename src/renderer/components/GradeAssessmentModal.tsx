@@ -1,11 +1,6 @@
 import { useState, type FormEvent } from "react";
-import type {
-  Adjustment,
-  Assessment,
-  AssessmentStatus,
-  GradeWork,
-  StudentWorkGrade,
-} from "../../shared/ipc";
+import { editorMarkSave, nhiClearsExistingMark } from "../../shared/grades";
+import type { Adjustment, Assessment, GradeWork, StudentWorkGrade } from "../../shared/ipc";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseOptionalNumber, parseRequiredNumber } from "../form-numbers";
 import { createAdjustment, deleteAdjustment, updateAdjustment, upsertAssessment } from "../grading";
@@ -13,7 +8,6 @@ import "./common/ActionButton.css";
 import { ConfirmDeleteModal } from "./common/ConfirmDeleteModal";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import "./common/Field.css";
-import { SelectField } from "./common/SelectField";
 import { TextArea } from "./common/TextArea";
 import { TextField } from "./common/TextField";
 import { PencilIcon } from "./common/icons/PencilIcon";
@@ -41,7 +35,8 @@ type AssessmentFields = {
   date: string;
   weight: string;
   notes: string;
-  status: AssessmentStatus;
+  exempt: boolean;
+  nhi: boolean;
 };
 
 type AdjustmentFields = {
@@ -62,23 +57,26 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [savingAdjustment, setSavingAdjustment] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Adjustment | null>(null);
+  const [pendingNhi, setPendingNhi] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   async function saveAssessmentRecord(): Promise<Assessment> {
-    const score = statusOmitsScore(assessmentFields.status)
-      ? assessmentFields.status === "nhi"
-        ? 0
-        : (parseOptionalNumber(assessmentFields.score) ?? 0)
-      : parseRequiredNumber(assessmentFields.score, "Enter a mark.");
+    const status = assessmentFields.nhi ? "nhi" : assessmentFields.exempt ? "exempt" : "counted";
+    const entered = assessmentFields.nhi ? null : parseOptionalNumber(assessmentFields.score);
+    const saved = editorMarkSave(status, entered);
+
+    if (!saved) {
+      throw new Error("Enter a mark.");
+    }
 
     return upsertAssessment({
       workId: editor.work.id,
       studentId: editor.studentId,
-      score,
+      score: saved.score,
       date: assessmentFields.date,
       weight: parseRequiredNumber(assessmentFields.weight, "A weight is required."),
       notes: assessmentFields.notes,
-      status: assessmentFields.status,
+      status: saved.status,
     });
   }
 
@@ -152,191 +150,252 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
 
   const busy = savingAssessment || savingAdjustment;
 
+  function onExemptChange(checked: boolean): void {
+    if (!checked) {
+      setAssessmentFields({ ...assessmentFields, exempt: false });
+      return;
+    }
+
+    setAssessmentFields({
+      ...assessmentFields,
+      exempt: true,
+      nhi: false,
+      score: assessmentFields.nhi ? "" : assessmentFields.score,
+    });
+  }
+
+  function onNhiChange(checked: boolean): void {
+    if (!checked) {
+      setAssessmentFields({ ...assessmentFields, nhi: false, score: "0" });
+      return;
+    }
+
+    const savedScore = editor.workGrade.assessment?.score ?? null;
+
+    if (nhiClearsExistingMark(savedScore, assessmentFields.score)) {
+      setPendingNhi(true);
+      return;
+    }
+
+    setAssessmentFields({ ...assessmentFields, nhi: true, exempt: false, score: "" });
+  }
+
+  function confirmNhi(): void {
+    setAssessmentFields({ ...assessmentFields, nhi: true, exempt: false, score: "" });
+    setPendingNhi(false);
+  }
+
   return (
     <>
       <Modal
-        title={`Edit assessment · ${editor.work.name}`}
+        title={pendingNhi ? "Clear score" : `Edit assessment · ${editor.work.name}`}
         open
-        onClose={onClose}
+        onClose={pendingNhi ? () => setPendingNhi(false) : onClose}
         className="grade-assessment-modal"
       >
-        <p className="grade-assessment-student">{editor.studentName}</p>
-        <ErrorDisplay error={error} />
-        <form className="fields" onSubmit={(event) => void onSaveAssessment(event)}>
-          <TextField
-            label="Score"
-            required={!statusOmitsScore(assessmentFields.status)}
-            type="text"
-            inputMode="decimal"
-            value={assessmentFields.score}
-            onChange={(event) =>
-              setAssessmentFields({ ...assessmentFields, score: event.target.value })
-            }
-            disabled={busy || statusOmitsScore(assessmentFields.status)}
-            suffix={<span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>}
-          />
-          <TextField
-            label="Date (YYYY-MM-DD)"
-            required
-            type="text"
-            placeholder="YYYY-MM-DD"
-            autoComplete="off"
-            spellCheck={false}
-            value={assessmentFields.date}
-            onChange={(event) =>
-              setAssessmentFields({ ...assessmentFields, date: event.target.value })
-            }
-            disabled={busy}
-          />
-          <TextField
-            label="Weight (%)"
-            required
-            type="number"
-            step="any"
-            value={assessmentFields.weight}
-            onChange={(event) =>
-              setAssessmentFields({ ...assessmentFields, weight: event.target.value })
-            }
-            disabled={busy}
-          />
-          <SelectField
-            label="Status"
-            value={assessmentFields.status}
-            disabled={busy}
-            onChange={(event) => {
-              const status = event.target.value;
-              if (isAssessmentStatus(status)) {
-                setAssessmentFields({ ...assessmentFields, status });
-              }
-            }}
-          >
-            <option value="counted">Counted</option>
-            <option value="exempt">Exempt</option>
-            <option value="nhi">Not handed in</option>
-          </SelectField>
-          <TextArea
-            label="Notes"
-            value={assessmentFields.notes}
-            onChange={(event) =>
-              setAssessmentFields({ ...assessmentFields, notes: event.target.value })
-            }
-            disabled={busy}
-          />
-          <div className="modal-actions">
-            <button type="submit" className="action-button" disabled={busy}>
-              {savingAssessment ? "Saving…" : "Save assessment"}
-            </button>
-          </div>
-        </form>
-
-        <h3 className="grade-assessment-heading">Adjustments</h3>
-        {editor.workGrade.adjustments.length === 0 ? (
-          <p className="muted">No adjustments yet.</p>
-        ) : (
-          <ul className="grade-adjustment-list">
-            {editor.workGrade.adjustments.map((adjustment) => (
-              <li key={adjustment.id} className="record-item">
-                <div className="grade-adjustment-label">
-                  <strong>{adjustment.description}</strong>
-                  <span className="record-button-meta">{adjustmentSummary(adjustment)}</span>
-                </div>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`Edit ${adjustment.description}`}
-                  onClick={() => {
-                    setEditingId(adjustment.id);
-                    setAdjustmentFields({
-                      percentChange: numberInputValue(adjustment.percentChange),
-                      rawChange: numberInputValue(adjustment.rawChange),
-                      description: adjustment.description,
-                      notes: adjustment.notes,
-                    });
-                  }}
-                >
-                  <PencilIcon />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button icon-button--danger"
-                  aria-label={`Delete ${adjustment.description}`}
-                  onClick={() => setPendingDelete(adjustment)}
-                >
-                  <TrashIcon />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <form className="fields" onSubmit={(event) => void onSaveAdjustment(event)}>
-          <TextField
-            label="Description"
-            required
-            type="text"
-            value={adjustmentFields.description}
-            onChange={(event) =>
-              setAdjustmentFields({ ...adjustmentFields, description: event.target.value })
-            }
-            autoComplete="off"
-            disabled={busy}
-          />
-          <TextField
-            label="Percent change"
-            type="number"
-            step="any"
-            value={adjustmentFields.percentChange}
-            onChange={(event) =>
-              setAdjustmentFields({ ...adjustmentFields, percentChange: event.target.value })
-            }
-            disabled={busy}
-          />
-          <TextField
-            label="Raw change"
-            type="number"
-            step="any"
-            value={adjustmentFields.rawChange}
-            onChange={(event) =>
-              setAdjustmentFields({ ...adjustmentFields, rawChange: event.target.value })
-            }
-            disabled={busy}
-          />
-          <TextArea
-            label="Notes"
-            value={adjustmentFields.notes}
-            onChange={(event) =>
-              setAdjustmentFields({ ...adjustmentFields, notes: event.target.value })
-            }
-            disabled={busy}
-          />
-          <div className="modal-actions">
-            {editingId !== null ? (
+        {pendingNhi ? (
+          <>
+            <p className="modal-copy">Marking this assessment NHI will clear the score.</p>
+            <div className="modal-actions">
               <button
                 type="button"
                 className="action-button action-button--secondary"
-                onClick={() => {
-                  setEditingId(null);
-                  setAdjustmentFields(emptyAdjustmentFields());
-                }}
+                onClick={() => setPendingNhi(false)}
               >
-                Cancel edit
+                Cancel
               </button>
-            ) : null}
-            <button
-              type="button"
-              className="action-button action-button--secondary"
-              onClick={onClose}
-            >
-              Close
-            </button>
-            <button type="submit" className="action-button" disabled={busy}>
-              {savingAdjustment
-                ? "Saving…"
-                : editingId !== null
-                  ? "Save adjustment"
-                  : "Add adjustment"}
-            </button>
-          </div>
-        </form>
+              <button type="button" className="action-button" onClick={confirmNhi}>
+                Clear score
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="grade-assessment-student">{editor.studentName}</p>
+            <ErrorDisplay error={error} />
+            <form className="fields" onSubmit={(event) => void onSaveAssessment(event)}>
+              <TextField
+                label="Score"
+                required={!assessmentFields.exempt && !assessmentFields.nhi}
+                type="text"
+                inputMode="decimal"
+                value={assessmentFields.score}
+                onChange={(event) =>
+                  setAssessmentFields({ ...assessmentFields, score: event.target.value })
+                }
+                disabled={busy || assessmentFields.nhi}
+                suffix={
+                  <span className="grade-assessment-maximum">/{editor.work.maximumScore}</span>
+                }
+              />
+              <TextField
+                label="Date (YYYY-MM-DD)"
+                required
+                type="text"
+                placeholder="YYYY-MM-DD"
+                autoComplete="off"
+                spellCheck={false}
+                value={assessmentFields.date}
+                onChange={(event) =>
+                  setAssessmentFields({ ...assessmentFields, date: event.target.value })
+                }
+                disabled={busy}
+              />
+              <TextField
+                label="Weight (%)"
+                required
+                type="number"
+                step="any"
+                value={assessmentFields.weight}
+                onChange={(event) =>
+                  setAssessmentFields({ ...assessmentFields, weight: event.target.value })
+                }
+                disabled={busy}
+              />
+              <fieldset className="grade-assessment-flags" disabled={busy}>
+                <legend className="visually-hidden">Mark status</legend>
+                <label className="grade-assessment-flag">
+                  <input
+                    type="checkbox"
+                    checked={assessmentFields.exempt}
+                    onChange={(event) => onExemptChange(event.target.checked)}
+                  />
+                  Exempt
+                </label>
+                <label className="grade-assessment-flag">
+                  <input
+                    type="checkbox"
+                    checked={assessmentFields.nhi}
+                    onChange={(event) => onNhiChange(event.target.checked)}
+                  />
+                  NHI
+                </label>
+              </fieldset>
+              <TextArea
+                label="Notes"
+                value={assessmentFields.notes}
+                onChange={(event) =>
+                  setAssessmentFields({ ...assessmentFields, notes: event.target.value })
+                }
+                disabled={busy}
+              />
+              <div className="modal-actions">
+                <button type="submit" className="action-button" disabled={busy}>
+                  {savingAssessment ? "Saving…" : "Save assessment"}
+                </button>
+              </div>
+            </form>
+
+            <h3 className="grade-assessment-heading">Adjustments</h3>
+            {editor.workGrade.adjustments.length === 0 ? (
+              <p className="muted">No adjustments yet.</p>
+            ) : (
+              <ul className="grade-adjustment-list">
+                {editor.workGrade.adjustments.map((adjustment) => (
+                  <li key={adjustment.id} className="record-item">
+                    <div className="grade-adjustment-label">
+                      <strong>{adjustment.description}</strong>
+                      <span className="record-button-meta">{adjustmentSummary(adjustment)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Edit ${adjustment.description}`}
+                      onClick={() => {
+                        setEditingId(adjustment.id);
+                        setAdjustmentFields({
+                          percentChange: numberInputValue(adjustment.percentChange),
+                          rawChange: numberInputValue(adjustment.rawChange),
+                          description: adjustment.description,
+                          notes: adjustment.notes,
+                        });
+                      }}
+                    >
+                      <PencilIcon />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button icon-button--danger"
+                      aria-label={`Delete ${adjustment.description}`}
+                      onClick={() => setPendingDelete(adjustment)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form className="fields" onSubmit={(event) => void onSaveAdjustment(event)}>
+              <TextField
+                label="Description"
+                required
+                type="text"
+                value={adjustmentFields.description}
+                onChange={(event) =>
+                  setAdjustmentFields({ ...adjustmentFields, description: event.target.value })
+                }
+                autoComplete="off"
+                disabled={busy}
+              />
+              <TextField
+                label="Percent change"
+                type="number"
+                step="any"
+                value={adjustmentFields.percentChange}
+                onChange={(event) =>
+                  setAdjustmentFields({ ...adjustmentFields, percentChange: event.target.value })
+                }
+                disabled={busy}
+              />
+              <TextField
+                label="Raw change"
+                type="number"
+                step="any"
+                value={adjustmentFields.rawChange}
+                onChange={(event) =>
+                  setAdjustmentFields({ ...adjustmentFields, rawChange: event.target.value })
+                }
+                disabled={busy}
+              />
+              <TextArea
+                label="Notes"
+                value={adjustmentFields.notes}
+                onChange={(event) =>
+                  setAdjustmentFields({ ...adjustmentFields, notes: event.target.value })
+                }
+                disabled={busy}
+              />
+              <div className="modal-actions">
+                {editingId !== null ? (
+                  <button
+                    type="button"
+                    className="action-button action-button--secondary"
+                    onClick={() => {
+                      setEditingId(null);
+                      setAdjustmentFields(emptyAdjustmentFields());
+                    }}
+                  >
+                    Cancel edit
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="action-button action-button--secondary"
+                  onClick={onClose}
+                >
+                  Close
+                </button>
+                <button type="submit" className="action-button" disabled={busy}>
+                  {savingAdjustment
+                    ? "Saving…"
+                    : editingId !== null
+                      ? "Save adjustment"
+                      : "Add adjustment"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </Modal>
       <ConfirmDeleteModal
         title="Delete adjustment"
@@ -352,25 +411,20 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
 }
 
 function fieldsFromAssessment(work: GradeWork, assessment: Assessment | null): AssessmentFields {
+  const status = assessment?.status ?? "counted";
+
   return {
-    score: numberInputValue(assessment?.score),
+    score: status === "nhi" ? "" : numberInputValue(assessment?.score),
     date: assessment?.date ?? todayIsoDate(),
     weight: String(assessment?.weight ?? work.weight),
     notes: assessment?.notes ?? "",
-    status: assessment?.status ?? "counted",
+    exempt: status === "exempt",
+    nhi: status === "nhi",
   };
 }
 
 function emptyAdjustmentFields(): AdjustmentFields {
   return { percentChange: "", rawChange: "", description: "", notes: "" };
-}
-
-function isAssessmentStatus(value: string): value is AssessmentStatus {
-  return value === "counted" || value === "exempt" || value === "nhi";
-}
-
-function statusOmitsScore(status: AssessmentStatus): boolean {
-  return status === "exempt" || status === "nhi";
 }
 
 function adjustmentSummary(adjustment: Adjustment): string {

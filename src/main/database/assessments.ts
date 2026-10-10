@@ -28,16 +28,22 @@ export async function upsertAssessment(
   await requireStudent(db, parsed.studentId);
   const { work } = await requireWorkInClass(db, parsed.workId, parsed.studentId);
   const existing = await findAssessment(db, parsed.workId, parsed.studentId);
+  const status = parsed.status ?? existing?.status ?? "counted";
+  const score = status === "nhi" ? null : parsed.score;
+
+  if (status === "counted" && score === null) {
+    throw new Error("Enter a mark.");
+  }
 
   if (existing) {
     const updated = await db
       .update(assessments)
       .set({
-        score: parsed.score,
+        score,
         date: parsed.date ?? existing.date,
         weight: parsed.weight ?? existing.weight,
         notes: parsed.notes ?? existing.notes,
-        status: parsed.status ?? existing.status,
+        status,
       })
       .where(eq(assessments.id, existing.id))
       .returning();
@@ -55,11 +61,11 @@ export async function upsertAssessment(
     .values({
       workId: parsed.workId,
       studentId: parsed.studentId,
-      score: parsed.score,
+      score,
       date: parsed.date ?? todayIsoDate(),
       weight: parsed.weight ?? work.weight,
       notes: parsed.notes ?? "",
-      status: parsed.status ?? "counted",
+      status,
     })
     .returning();
   const assessment = created[0];
