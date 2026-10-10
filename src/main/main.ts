@@ -204,6 +204,8 @@ function registerDatabaseIpc(): void {
   registerIpcHandler(ipcChannels.assessmentUpsert, grading.upsertAssessment);
   registerIpcHandler(ipcChannels.assessmentDelete, grading.deleteAssessment);
   registerIpcHandler(ipcChannels.goalMarkSet, grading.setGoalMark);
+  registerIpcHandler(ipcChannels.excuseSet, grading.setExcuse);
+  registerIpcHandler(ipcChannels.excuseSetAll, grading.setAllExcuses);
   registerIpcHandler(ipcChannels.adjustmentCreate, grading.createAdjustment);
   registerIpcHandler(ipcChannels.adjustmentUpdate, grading.updateAdjustment);
   registerIpcHandler(ipcChannels.adjustmentDelete, grading.deleteAdjustment);

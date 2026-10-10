@@ -1,9 +1,5 @@
 import { eq, inArray, or, type SQL } from "drizzle-orm";
-import {
-  assessmentCountsTowardAverage,
-  assessmentPercent,
-  weightedAverage,
-} from "../../shared/grades";
+import { assessmentPercent, weightedAverage, workCountsTowardAverage } from "../../shared/grades";
 import {
   classLookupInputSchema,
   type Adjustment,
@@ -21,7 +17,7 @@ import { parseStoredAssessment } from "./assessments";
 import { getClass } from "./classes";
 import { listStudentsForClass } from "./enrolments";
 import { flattenWorks, loadGradingStructure } from "./grading-structure";
-import { adjustments, assessments, goalMarks } from "./schema";
+import { adjustments, assessments, excuses, goalMarks } from "./schema";
 import type { GradebookDatabase } from "./status";
 
 export async function getClassGradebook(
@@ -34,6 +30,7 @@ export async function getClassGradebook(
   const students = await listStudentsForClass(db, lookup);
   const goalRows = await listClassGoalMarks(db, schoolClass.id, structure);
   const goals = indexGoalMarks(goalRows);
+  const excuseIndex = indexExcuses(await listClassExcuses(db, structure));
   const workRows = flattenWorks(structure);
   const workIds = workRows.map((work) => work.id);
   const assessmentRows =
@@ -63,6 +60,7 @@ export async function getClassGradebook(
         assessmentsByKey,
         adjustmentsByAssessment,
         goals,
+        excuseIndex,
       ),
     ),
   };
@@ -74,9 +72,15 @@ function buildStudentRow(
   assessmentsByKey: Map<string, Assessment>,
   adjustmentsByAssessment: Map<number, Array<Adjustment>>,
   goals: GoalIndex,
+  excuseIndex: ExcuseIndex,
 ): StudentGradeRow {
   const categoryGrades = categories.map((category) => {
+    const categoryExcused = excuseIndex.categories.has(excuseKey(student.id, category.id));
     const subcategoryGrades = category.subcategories.map((subcategory) => {
+      const subcategoryExcused = excuseIndex.subcategories.has(
+        excuseKey(student.id, subcategory.id),
+      );
+      const covered = categoryExcused || subcategoryExcused;
       const workGrades = subcategory.works.map((work) =>
         buildWorkGrade(
           student.id,
@@ -84,15 +88,17 @@ function buildStudentRow(
           assessmentsByKey,
           adjustmentsByAssessment,
           lookupGoal(goals.works, student.id, work.id),
+          covered,
         ),
       );
 
       return {
         subcategoryId: subcategory.id,
-        percent: weightedAverage(
-          workGrades.flatMap((workGrade) => countableWorkAverage(workGrade)),
-        ),
+        percent: covered
+          ? null
+          : weightedAverage(workGrades.flatMap((workGrade) => countableWorkAverage(workGrade))),
         goalMark: lookupGoal(goals.subcategories, student.id, subcategory.id),
+        excused: subcategoryExcused,
         works: workGrades,
       } satisfies StudentSubcategoryGrade;
     });
@@ -103,19 +109,23 @@ function buildStudentRow(
         assessmentsByKey,
         adjustmentsByAssessment,
         lookupGoal(goals.works, student.id, work.id),
+        categoryExcused,
       ),
     );
 
     return {
       categoryId: category.id,
-      percent: weightedAverage([
-        ...subcategoryGrades.map((subcategoryGrade, index) => ({
-          percent: subcategoryGrade.percent,
-          weight: category.subcategories[index]?.weight ?? 0,
-        })),
-        ...categoryWorkGrades.flatMap((workGrade) => countableWorkAverage(workGrade)),
-      ]),
+      percent: categoryExcused
+        ? null
+        : weightedAverage([
+            ...subcategoryGrades.map((subcategoryGrade, index) => ({
+              percent: subcategoryGrade.percent,
+              weight: category.subcategories[index]?.weight ?? 0,
+            })),
+            ...categoryWorkGrades.flatMap((workGrade) => countableWorkAverage(workGrade)),
+          ]),
       goalMark: lookupGoal(goals.categories, student.id, category.id),
+      excused: categoryExcused,
       subcategories: subcategoryGrades,
       works: categoryWorkGrades,
     } satisfies StudentCategoryGrade;
@@ -140,6 +150,7 @@ function buildWorkGrade(
   assessmentsByKey: Map<string, Assessment>,
   adjustmentsByAssessment: Map<number, Array<Adjustment>>,
   goalMark: number | null,
+  excused: boolean,
 ): StudentWorkGrade {
   const assessment = assessmentsByKey.get(assessmentKey(studentId, work.id)) ?? null;
   const workAdjustments = assessment ? (adjustmentsByAssessment.get(assessment.id) ?? []) : [];
@@ -157,13 +168,14 @@ function buildWorkGrade(
     adjustments: workAdjustments,
     percent,
     goalMark,
+    excused,
   };
 }
 
 function countableWorkAverage(
   workGrade: StudentWorkGrade,
 ): Array<{ percent: number | null; weight: number }> {
-  if (!workGrade.assessment || !assessmentCountsTowardAverage(workGrade.assessment.status)) {
+  if (!workGrade.assessment || !workCountsTowardAverage(workGrade)) {
     return [];
   }
 
@@ -273,6 +285,56 @@ function combineFilters(filters: Array<SQL>): SQL {
   }
 
   return combined;
+}
+
+interface ExcuseIndex {
+  categories: Set<string>;
+  subcategories: Set<string>;
+}
+
+async function listClassExcuses(db: GradebookDatabase, structure: ClassGradingStructure) {
+  const categoryIds = structure.categories.map((category) => category.id);
+  const subcategoryIds = structure.categories.flatMap((category) =>
+    category.subcategories.map((subcategory) => subcategory.id),
+  );
+  const filters: Array<SQL> = [];
+
+  if (categoryIds.length > 0) {
+    filters.push(inArray(excuses.categoryId, categoryIds));
+  }
+
+  if (subcategoryIds.length > 0) {
+    filters.push(inArray(excuses.subcategoryId, subcategoryIds));
+  }
+
+  if (filters.length === 0) {
+    return [];
+  }
+
+  return db.select().from(excuses).where(combineFilters(filters));
+}
+
+function indexExcuses(rows: Array<typeof excuses.$inferSelect>): ExcuseIndex {
+  const index: ExcuseIndex = {
+    categories: new Set(),
+    subcategories: new Set(),
+  };
+
+  for (const row of rows) {
+    if (row.categoryId !== null) {
+      index.categories.add(goalKey(row.studentId, row.categoryId));
+    }
+
+    if (row.subcategoryId !== null) {
+      index.subcategories.add(goalKey(row.studentId, row.subcategoryId));
+    }
+  }
+
+  return index;
+}
+
+function excuseKey(studentId: number, targetId: number): string {
+  return goalKey(studentId, targetId);
 }
 
 function parseLookupInput(input: ClassLookupInput): ClassLookupInput {

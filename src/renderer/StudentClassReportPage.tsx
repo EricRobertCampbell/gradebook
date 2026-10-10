@@ -225,6 +225,8 @@ function CategoryReportRows({
             assessment: null,
             adjustments: [],
             percent: null,
+            goalMark: null,
+            excused: false,
           };
 
           return <WorkReportRow key={work.id} work={work} workGrade={workGrade} />;
@@ -273,6 +275,8 @@ function SubcategoryReportRows({
           assessment: null,
           adjustments: [],
           percent: null,
+          goalMark: null,
+          excused: false,
         };
 
         return <WorkReportRow key={work.id} work={work} workGrade={workGrade} />;

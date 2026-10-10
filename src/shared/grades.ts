@@ -67,6 +67,17 @@ export function assessmentCountsTowardAverage(status: string): boolean {
   return status === "counted" || status === "nhi";
 }
 
+export function workCountsTowardAverage(work: {
+  excused: boolean;
+  assessment: { status: string } | null;
+}): boolean {
+  if (work.excused || !work.assessment) {
+    return false;
+  }
+
+  return assessmentCountsTowardAverage(work.assessment.status);
+}
+
 export function assessmentStatusCode(status: string): string | null {
   for (const mark of SPECIAL_MARKS) {
     if (mark.status === status) {

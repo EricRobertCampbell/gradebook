@@ -3,7 +3,7 @@ import {
   mean as statisticsMean,
   median as statisticsMedian,
 } from "simple-statistics";
-import { assessmentCountsTowardAverage } from "./grades";
+import { workCountsTowardAverage } from "./grades";
 import { sortCategoryChildren } from "./grading-order";
 import type {
   ClassGradebook,
@@ -107,8 +107,7 @@ export function countableMarksForWork(gradebook: ClassGradebook, workId: number)
 
     if (
       workGrade === null ||
-      workGrade.assessment === null ||
-      !assessmentCountsTowardAverage(workGrade.assessment.status) ||
+      !workCountsTowardAverage(workGrade) ||
       workGrade.percent === null ||
       !Number.isFinite(workGrade.percent)
     ) {

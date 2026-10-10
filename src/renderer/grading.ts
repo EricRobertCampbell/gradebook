@@ -3,6 +3,8 @@ import {
   assessmentAdjustmentsPath,
   categoryCopyPath,
   categoryChildrenOrderPath,
+  categoryExcusesAllPath,
+  categoryExcusesPath,
   categoryPath,
   categorySubcategoriesPath,
   categoryWorksPath,
@@ -12,6 +14,8 @@ import {
   classGradingStructurePath,
   DEVELOPMENT_API_GOAL_MARKS_PATH,
   subcategoryCopyPath,
+  subcategoryExcusesAllPath,
+  subcategoryExcusesPath,
   subcategoryPath,
   subcategoryWorksOrderPath,
   subcategoryWorksPath,
@@ -34,6 +38,10 @@ import {
   classGradebookSchema,
   classGradingStructureSchema,
   classLookupInputSchema,
+  excuseSetAllInputSchema,
+  excuseSetAllResultSchema,
+  excuseSetInputSchema,
+  excuseSetResultSchema,
   goalMarkSetInputSchema,
   goalMarkSetResultSchema,
   deleteResultSchema,
@@ -60,6 +68,10 @@ import {
   type ClassGradebook,
   type ClassGradingStructure,
   type ClassLookupInput,
+  type ExcuseSetAllInput,
+  type ExcuseSetAllResult,
+  type ExcuseSetInput,
+  type ExcuseSetResult,
   type GoalMarkSetInput,
   type GoalMarkSetResult,
   type DeleteResult,
@@ -494,6 +506,49 @@ export async function setGoalMark(input: GoalMarkSetInput): Promise<GoalMarkSetR
   );
 }
 
+export async function setExcuse(input: ExcuseSetInput): Promise<ExcuseSetResult> {
+  const parsed = parseWith(excuseSetInputSchema, input, "The excuse could not be saved.");
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.excuses.set(parsed);
+  }
+
+  return excuseSetResultSchema.parse(
+    await requestDevelopmentApi(
+      excuseRequestPath(parsed, false),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: parsed.studentId,
+          excused: parsed.excused,
+        }),
+      },
+      "The excuse could not be saved.",
+    ),
+  );
+}
+
+export async function setAllExcuses(input: ExcuseSetAllInput): Promise<ExcuseSetAllResult> {
+  const parsed = parseWith(excuseSetAllInputSchema, input, "The excuse could not be saved.");
+
+  if (hasPreloadGradingApi() && window.gradebook) {
+    return window.gradebook.excuses.setAll(parsed);
+  }
+
+  return excuseSetAllResultSchema.parse(
+    await requestDevelopmentApi(
+      excuseRequestPath(parsed, true),
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ excused: parsed.excused }),
+      },
+      "The excuse could not be saved.",
+    ),
+  );
+}
+
 export async function deleteAssessment(input: AssessmentLookupInput): Promise<DeleteResult> {
   const parsed = parseWith(assessmentLookupInputSchema, input, "That assessment was not found.");
 
@@ -582,6 +637,23 @@ export async function deleteAdjustment(input: RecordIdInput): Promise<DeleteResu
       "The adjustment could not be deleted.",
     ),
   );
+}
+
+function excuseRequestPath(
+  input: { categoryId?: number | null; subcategoryId?: number | null },
+  all: boolean,
+): string {
+  if (input.categoryId != null) {
+    return all ? categoryExcusesAllPath(input.categoryId) : categoryExcusesPath(input.categoryId);
+  }
+
+  if (input.subcategoryId != null) {
+    return all
+      ? subcategoryExcusesAllPath(input.subcategoryId)
+      : subcategoryExcusesPath(input.subcategoryId);
+  }
+
+  throw new Error("The excuse could not be saved.");
 }
 
 function hasPreloadGradingApi(): boolean {

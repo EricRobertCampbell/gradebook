@@ -65,6 +65,10 @@ const gradebookApi: GradebookApi = {
   goalMarks: {
     set: (input) => invoke(ipcChannels.goalMarkSet, input),
   },
+  excuses: {
+    set: (input) => invoke(ipcChannels.excuseSet, input),
+    setAll: (input) => invoke(ipcChannels.excuseSetAll, input),
+  },
   adjustments: {
     create: (input) => invoke(ipcChannels.adjustmentCreate, input),
     update: (input) => invoke(ipcChannels.adjustmentUpdate, input),

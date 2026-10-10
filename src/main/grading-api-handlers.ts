@@ -6,6 +6,7 @@ import {
   upsertAssessment,
 } from "./database/assessments";
 import { getClassGradebook } from "./database/gradebook";
+import { setAllExcuses, setExcuse } from "./database/excuses";
 import { setGoalMark } from "./database/goal-marks";
 import {
   copyCategory,
@@ -50,6 +51,8 @@ export function gradingApiHandlers(getDb: () => GradebookDatabase): GradingDevel
     upsertAssessment: (input) => upsertAssessment(getDb(), input),
     deleteAssessment: (input) => deleteAssessment(getDb(), input),
     setGoalMark: (input) => setGoalMark(getDb(), input),
+    setExcuse: (input) => setExcuse(getDb(), input),
+    setAllExcuses: (input) => setAllExcuses(getDb(), input),
     createAdjustment: (input) => createAdjustment(getDb(), input),
     updateAdjustment: (input) => updateAdjustment(getDb(), input),
     deleteAdjustment: (input) => deleteAdjustment(getDb(), input),

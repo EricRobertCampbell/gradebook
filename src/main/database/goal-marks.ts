@@ -4,8 +4,9 @@ import {
   type GoalMarkSetInput,
   type GoalMarkSetResult,
 } from "../../shared/ipc";
+import { requireStudentEnrolled } from "./enrolments";
 import { requireCategory, requireSubcategory, requireWorkInClass } from "./grading-structure";
-import { classStudents, classes, goalMarks } from "./schema";
+import { goalMarks } from "./schema";
 import type { GradebookDatabase } from "./status";
 import { requireStudent } from "./students";
 
@@ -107,47 +108,25 @@ async function requireTargetEnrolment(
   target: GoalTarget,
 ): Promise<void> {
   if (target.classId !== null) {
-    await requireEnrolled(db, studentId, target.classId);
+    await requireStudentEnrolled(db, target.classId, studentId);
     return;
   }
 
   if (target.categoryId !== null) {
     const category = await requireCategory(db, target.categoryId);
-    await requireEnrolled(db, studentId, category.classId);
+    await requireStudentEnrolled(db, category.classId, studentId);
     return;
   }
 
   if (target.subcategoryId !== null) {
     const subcategory = await requireSubcategory(db, target.subcategoryId);
     const category = await requireCategory(db, subcategory.categoryId);
-    await requireEnrolled(db, studentId, category.classId);
+    await requireStudentEnrolled(db, category.classId, studentId);
     return;
   }
 
   if (target.workId !== null) {
     await requireWorkInClass(db, target.workId, studentId);
-  }
-}
-
-async function requireEnrolled(
-  db: GradebookDatabase,
-  studentId: number,
-  classId: number,
-): Promise<void> {
-  const schoolClass = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
-
-  if (!schoolClass[0]) {
-    throw new Error("That class was not found.");
-  }
-
-  const enrolment = await db
-    .select()
-    .from(classStudents)
-    .where(and(eq(classStudents.classId, classId), eq(classStudents.studentId, studentId)))
-    .limit(1);
-
-  if (!enrolment[0]) {
-    throw new Error("That student is not in this class.");
   }
 }
 

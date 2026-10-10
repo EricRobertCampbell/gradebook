@@ -12,6 +12,8 @@ import {
   DEVELOPMENT_API_SUBJECTS_PATH,
   parentPath,
   categoryCopyPath,
+  categoryExcusesAllPath,
+  categoryExcusesPath,
   classByIdPath,
   schoolYearClassPath,
   schoolYearClassesPath,
@@ -20,6 +22,8 @@ import {
   studentParentPath,
   studentParentsPath,
   studentPath,
+  subcategoryExcusesAllPath,
+  subcategoryExcusesPath,
   workStudentAssessmentPath,
 } from "../shared/development-api";
 import { handleDevelopmentApiRequest, type DevelopmentApiHandlers } from "./development-api";
@@ -186,6 +190,8 @@ const unusedHandlers: DevelopmentApiHandlers = {
   }),
   deleteAdjustment: async () => ({ deleted: true }),
   setGoalMark: async ({ goalMark }) => ({ goalMark }),
+  setExcuse: async ({ excused }) => ({ excused }),
+  setAllExcuses: async ({ excused }) => ({ excusedStudentIds: excused ? [1] : [] }),
 };
 
 describe("handleDevelopmentApiRequest", () => {
@@ -664,6 +670,72 @@ describe("handleDevelopmentApiRequest", () => {
         body: { status: "counted" },
       }),
     ).rejects.toThrow("A score is required.");
+  });
+
+  it("sets category and sub-category excuses on the typed development routes", async () => {
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "PUT",
+        pathname: categoryExcusesPath(4),
+        body: { studentId: 2, excused: true },
+        setExcuse: async (input) => {
+          expect(input).toEqual({ categoryId: 4, studentId: 2, excused: true });
+          return { excused: true };
+        },
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: { excused: true },
+    });
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "PUT",
+        pathname: categoryExcusesAllPath(4),
+        body: { excused: false },
+        setAllExcuses: async (input) => {
+          expect(input).toEqual({ categoryId: 4, excused: false });
+          return { excusedStudentIds: [] };
+        },
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: { excusedStudentIds: [] },
+    });
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "PUT",
+        pathname: subcategoryExcusesPath(3),
+        body: { studentId: 2, excused: false },
+        setExcuse: async (input) => {
+          expect(input).toEqual({ subcategoryId: 3, studentId: 2, excused: false });
+          return { excused: false };
+        },
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: { excused: false },
+    });
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "PUT",
+        pathname: subcategoryExcusesAllPath(3),
+        body: { excused: true },
+        setAllExcuses: async (input) => {
+          expect(input).toEqual({ subcategoryId: 3, excused: true });
+          return { excusedStudentIds: [2, 5] };
+        },
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: { excusedStudentIds: [2, 5] },
+    });
   });
 
   it("does not expose any other route", async () => {

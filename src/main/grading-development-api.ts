@@ -5,6 +5,10 @@ import {
   classGradebookSchema,
   classGradingStructureSchema,
   deleteResultSchema,
+  excuseSetAllInputSchema,
+  excuseSetAllResultSchema,
+  excuseSetInputSchema,
+  excuseSetResultSchema,
   goalMarkSetInputSchema,
   goalMarkSetResultSchema,
   reorderResultSchema,
@@ -23,6 +27,10 @@ import {
   type ClassGradingStructure,
   type ClassLookupInput,
   type DeleteResult,
+  type ExcuseSetAllInput,
+  type ExcuseSetAllResult,
+  type ExcuseSetInput,
+  type ExcuseSetResult,
   type GoalMarkSetInput,
   type GoalMarkSetResult,
   type RecordIdInput,
@@ -69,6 +77,8 @@ export type GradingDevelopmentApiHandlers = {
   upsertAssessment: (input: AssessmentUpsertInput) => Promise<Assessment>;
   deleteAssessment: (input: AssessmentLookupInput) => Promise<DeleteResult>;
   setGoalMark: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;
+  setExcuse: (input: ExcuseSetInput) => Promise<ExcuseSetResult>;
+  setAllExcuses: (input: ExcuseSetAllInput) => Promise<ExcuseSetAllResult>;
   createAdjustment: (input: AdjustmentCreateInput) => Promise<Adjustment>;
   updateAdjustment: (input: AdjustmentUpdateInput) => Promise<Adjustment>;
   deleteAdjustment: (input: RecordIdInput) => Promise<DeleteResult>;
@@ -173,6 +183,11 @@ async function handleRecordGradingRoute(
   }
 
   const categoryApi = idPath(options.pathname, DEVELOPMENT_API_CATEGORIES_PATH);
+  const categoryExcuse = await handleExcuseRoutes(options, categoryApi, "categoryId");
+  if (categoryExcuse) {
+    return categoryExcuse;
+  }
+
   if (categoryApi && categoryApi.rest.length === 0) {
     if (options.method === "PATCH") {
       return {
@@ -266,6 +281,11 @@ async function handleRecordGradingRoute(
   }
 
   const subcategoryApi = idPath(options.pathname, DEVELOPMENT_API_SUBCATEGORIES_PATH);
+  const subcategoryExcuse = await handleExcuseRoutes(options, subcategoryApi, "subcategoryId");
+  if (subcategoryExcuse) {
+    return subcategoryExcuse;
+  }
+
   if (subcategoryApi && subcategoryApi.rest.length === 0) {
     if (options.method === "PATCH") {
       return {
@@ -432,6 +452,54 @@ async function handleRecordGradingRoute(
         body: deleteResultSchema.parse(await options.deleteAdjustment({ id: adjustmentApi.id })),
       };
     }
+  }
+
+  return undefined;
+}
+
+async function handleExcuseRoutes(
+  options: GradingDevelopmentApiHandlers & {
+    method: string;
+    body?: unknown;
+  },
+  target: { id: number; rest: Array<string> } | undefined,
+  targetKey: "categoryId" | "subcategoryId",
+): Promise<DevelopmentApiResponse | undefined> {
+  if (!target || options.method !== "PUT" || target.rest[0] !== "excuses") {
+    return undefined;
+  }
+
+  if (target.rest.length === 2 && target.rest[1] === "all") {
+    const record = unknownRecord(options.body, "The excuse could not be saved.");
+
+    return {
+      statusCode: 200,
+      body: excuseSetAllResultSchema.parse(
+        await options.setAllExcuses(
+          excuseSetAllInputSchema.parse({
+            [targetKey]: target.id,
+            excused: record.excused,
+          }),
+        ),
+      ),
+    };
+  }
+
+  if (target.rest.length === 1) {
+    const record = unknownRecord(options.body, "The excuse could not be saved.");
+
+    return {
+      statusCode: 200,
+      body: excuseSetResultSchema.parse(
+        await options.setExcuse(
+          excuseSetInputSchema.parse({
+            [targetKey]: target.id,
+            studentId: record.studentId,
+            excused: record.excused,
+          }),
+        ),
+      ),
+    };
   }
 
   return undefined;

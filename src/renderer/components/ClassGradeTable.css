@@ -266,6 +266,11 @@
   min-width: 3.6rem;
 }
 
+.grade-table-summary--excused {
+  color: var(--colour-secondary-lighter);
+  font-style: italic;
+}
+
 .grade-cell--exempt {
   background: color-mix(in srgb, var(--colour-warning) 14%, var(--paper-light));
 }

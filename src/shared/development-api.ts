@@ -99,6 +99,22 @@ export function subcategoryWorksOrderPath(subcategoryId: number): string {
   return `${subcategoryWorksPath(subcategoryId)}/order`;
 }
 
+export function categoryExcusesPath(categoryId: number): string {
+  return `${categoryPath(categoryId)}/excuses`;
+}
+
+export function categoryExcusesAllPath(categoryId: number): string {
+  return `${categoryExcusesPath(categoryId)}/all`;
+}
+
+export function subcategoryExcusesPath(subcategoryId: number): string {
+  return `${subcategoryPath(subcategoryId)}/excuses`;
+}
+
+export function subcategoryExcusesAllPath(subcategoryId: number): string {
+  return `${subcategoryExcusesPath(subcategoryId)}/all`;
+}
+
 export function workPath(workId: number): string {
   return `${DEVELOPMENT_API_WORKS_PATH}/${workId}`;
 }
