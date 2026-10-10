@@ -274,6 +274,29 @@
   background: color-mix(in srgb, var(--colour-error) 12%, var(--paper-light));
 }
 
+/* A raw mark field carries data-work-id. Goal fields and the assessment
+   button do not, so focusing those leaves the row unhighlighted.
+   Pinned, summary, and status cells paint their own backgrounds, so the
+   highlight is set on the cells and mixed with those colours. */
+.grade-table tbody tr:has(input.grade-score-input[data-work-id]:focus) > :is(th, td) {
+  background-color: var(--colour-primary-lighter);
+}
+
+.grade-table
+  tbody
+  tr:has(input.grade-score-input[data-work-id]:focus)
+  > :is(.grade-table-summary, .grade-table-total) {
+  background-color: color-mix(in srgb, var(--colour-info) 16%, var(--colour-primary-lighter));
+}
+
+.grade-table tbody tr:has(input.grade-score-input[data-work-id]:focus) > .grade-cell--exempt {
+  background-color: color-mix(in srgb, var(--colour-warning) 42%, var(--colour-primary-lighter));
+}
+
+.grade-table tbody tr:has(input.grade-score-input[data-work-id]:focus) > .grade-cell--nhi {
+  background-color: color-mix(in srgb, var(--colour-error) 38%, var(--colour-primary-lighter));
+}
+
 .grade-score {
   display: flex;
   align-items: center;
