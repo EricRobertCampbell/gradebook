@@ -520,7 +520,7 @@ function readWorkFields(body: unknown): {
 }
 
 function readAssessmentFields(body: unknown): {
-  score: number;
+  score: number | null;
   date?: string;
   weight?: number;
   notes?: string;
@@ -528,13 +528,13 @@ function readAssessmentFields(body: unknown): {
 } {
   const record = requireObject(body, "A score is required.");
   const fields: {
-    score: number;
+    score: number | null;
     date?: string;
     weight?: number;
     notes?: string;
     status?: "counted" | "exempt" | "nhi";
   } = {
-    score: readNumberField(record, "score", "A score is required."),
+    score: readScoreField(record),
   };
 
   if ("date" in record && record.date !== undefined) {
@@ -601,6 +601,18 @@ function readOptionalStringField(body: Record<string, unknown>, key: string): st
   }
 
   return value;
+}
+
+function readScoreField(body: Record<string, unknown>): number | null {
+  if (!("score" in body)) {
+    throw new Error("A score is required.");
+  }
+
+  if (body.score === null) {
+    return null;
+  }
+
+  return readNumberField(body, "score", "A score is required.");
 }
 
 function readNumberField(body: Record<string, unknown>, key: string, message: string): number {

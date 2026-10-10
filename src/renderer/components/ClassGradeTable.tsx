@@ -3,12 +3,13 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   assessmentCountsTowardAverage,
-  assessmentStatusCode,
   formatGradePercent,
   formatWeightPercent,
+  gradeCellCommit,
+  markEntryValue,
   markInputErrorMessage,
+  markPresentation,
   mean,
-  parseSpecialMark,
 } from "../../shared/grades";
 import {
   categoryChildToken,
@@ -27,7 +28,7 @@ import type {
 } from "../../shared/ipc";
 import { personDisplayName } from "../../shared/person-name";
 import { describeError, type DisplayError } from "../errors";
-import { numberInputValue, parseRequiredNumber } from "../form-numbers";
+import { parseRequiredNumber } from "../form-numbers";
 import { handleGradeMarkKeyDown } from "../grade-mark-navigation";
 import {
   deleteAssessment,
@@ -1077,15 +1078,21 @@ function MarkCells({
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: () => void;
 }) {
-  const savedMark = markInputValue(workGrade.assessment);
+  const savedMark = workGrade.assessment
+    ? markEntryValue(workGrade.assessment.status, workGrade.assessment.score)
+    : "";
   const [draft, setDraft] = useState(savedMark);
   const [saving, setSaving] = useState(false);
-  const statusCode = workGrade.assessment
-    ? assessmentStatusCode(workGrade.assessment.status)
+  const presentation = workGrade.assessment
+    ? markPresentation(workGrade.assessment.status, workGrade.assessment.score)
     : null;
-  const cellClassName = statusCode
-    ? `grade-cell grade-cell--${workGrade.assessment?.status}`
-    : "grade-cell";
+  const cellClassName = [
+    "grade-cell",
+    presentation && presentation.tone !== "counted" ? `grade-cell--${presentation.tone}` : "",
+    presentation?.greyScore ? "grade-cell--exempt-score" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     setDraft(savedMark);
@@ -1093,13 +1100,18 @@ function MarkCells({
 
   async function saveScore(): Promise<void> {
     const trimmed = draft.trim();
-    const current = workGrade.assessment;
+    const commit = gradeCellCommit(workGrade.assessment, trimmed);
 
-    if (trimmed === "" && !current) {
+    if (commit.kind === "ignore") {
       return;
     }
 
-    if (trimmed === "" && current) {
+    if (commit.kind === "invalid") {
+      onError(markInputErrorMessage());
+      return;
+    }
+
+    if (commit.kind === "delete") {
       setSaving(true);
       onError(null);
       try {
@@ -1113,45 +1125,6 @@ function MarkCells({
       return;
     }
 
-    const specialStatus = parseSpecialMark(trimmed);
-
-    if (specialStatus) {
-      if (current?.status === specialStatus) {
-        return;
-      }
-
-      setSaving(true);
-      onError(null);
-
-      try {
-        await upsertAssessment({
-          workId: work.id,
-          studentId,
-          score: specialStatus === "nhi" ? 0 : (current?.score ?? 0),
-          status: specialStatus,
-        });
-        await onChanged();
-      } catch (caught) {
-        onError(describeError(caught, "The mark could not be saved."));
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
-
-    let score: number;
-
-    try {
-      score = parseRequiredNumber(trimmed, markInputErrorMessage());
-    } catch (caught) {
-      onError(describeError(caught, markInputErrorMessage()));
-      return;
-    }
-
-    if (score === current?.score && current.status === "counted") {
-      return;
-    }
-
     setSaving(true);
     onError(null);
 
@@ -1159,8 +1132,8 @@ function MarkCells({
       await upsertAssessment({
         workId: work.id,
         studentId,
-        score,
-        status: "counted",
+        score: commit.score,
+        status: commit.status,
       });
       await onChanged();
     } catch (caught) {
@@ -1200,7 +1173,7 @@ function MarkCells({
       </td>
       <td className={cellClassName}>
         <span className="grade-percent">
-          {statusCode ?? formatGradePercent(workGrade.percent)}
+          {presentation?.code ?? formatGradePercent(workGrade.percent)}
           {workGrade.adjustments.length > 0 ? (
             <AdjustmentMarker workName={work.name} adjustments={workGrade.adjustments} />
           ) : null}
@@ -1415,14 +1388,6 @@ function classAverages(gradebook: ClassGradebook) {
       })),
     })),
   };
-}
-
-function markInputValue(assessment: StudentWorkGrade["assessment"]): string {
-  if (!assessment) {
-    return "";
-  }
-
-  return assessmentStatusCode(assessment.status) ?? numberInputValue(assessment.score);
 }
 
 function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): AssessmentEditor {

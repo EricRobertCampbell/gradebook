@@ -78,7 +78,7 @@ Production data uses Electron’s `app.getPath("userData")`, not the source tree
 
 On startup the main process creates the database if needed, applies outstanding migrations, and inserts a `database_status` row when that key is missing. School years live in `school_years`, each with a unique non-empty name. Classes live in `classes`, with a display name, an internal name unique within the school year, optional subject and section, a required description, and a foreign key to `school_years`. Students and parents are separate tables, linked many-to-many through `student_parents`. Class enrolments are many-to-many through `class_students`.
 
-Grading is organised as class → category (unit) → sub-category → work. A student’s mark on a piece of work is an assessment (`counted` or `exempt`), and an assessment may have many adjustments. An assessment percent is the score divided by the work’s maximum; raw adjustments are applied to the score, and percent adjustments are applied to that ratio. Sub-category, category, and course percents are weighted averages. Exempt assessments are left out of those averages.
+Grading is organised as class → category (unit) → sub-category → work. A student’s mark on a piece of work is an assessment (`counted`, `exempt`, or `nhi`). An assessment may have many adjustments. An assessment percent is the score divided by the work’s maximum; raw adjustments are applied to the score, and percent adjustments are applied to that ratio. Sub-category, category, and course percents are weighted averages. Exempt assessments are left out of those averages, whether or not a score is stored. A stored exempt score is still shown. Not handed in counts as zero.
 
 ## Prerequisites
 

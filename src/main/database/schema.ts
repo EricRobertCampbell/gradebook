@@ -141,7 +141,7 @@ export const assessments = sqliteTable(
     studentId: integer("student_id")
       .notNull()
       .references(() => students.id, { onDelete: "cascade" }),
-    score: real("score").notNull(),
+    score: real("score"),
     date: text("date").notNull(),
     weight: real("weight").notNull(),
     notes: text("notes").notNull(),
