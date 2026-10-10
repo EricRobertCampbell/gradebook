@@ -359,6 +359,15 @@
   font-weight: 650;
 }
 
+.grade-note-mark {
+  color: var(--colour-info);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .grade-adjusted-mark {
   appearance: none;
   margin: 0;

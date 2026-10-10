@@ -24,6 +24,7 @@ import {
   studentPath,
   subcategoryExcusesAllPath,
   subcategoryExcusesPath,
+  workStudentAssessmentClearMarkPath,
   workStudentAssessmentPath,
 } from "../shared/development-api";
 import { handleDevelopmentApiRequest, type DevelopmentApiHandlers } from "./development-api";
@@ -172,6 +173,7 @@ const unusedHandlers: DevelopmentApiHandlers = {
     status: status ?? "counted",
   }),
   deleteAssessment: async () => ({ deleted: true }),
+  clearAssessmentMark: async () => ({ kept: true }),
   createAdjustment: async ({ assessmentId, percentChange, rawChange, description, notes }) => ({
     id: 1,
     assessmentId,
@@ -735,6 +737,44 @@ describe("handleDevelopmentApiRequest", () => {
     ).resolves.toEqual({
       statusCode: 200,
       body: { excusedStudentIds: [2, 5] },
+    });
+  });
+
+  it("clears a mark on the typed development route", async () => {
+    let received: unknown;
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        clearAssessmentMark: async (input) => {
+          received = input;
+          return { kept: false };
+        },
+        method: "POST",
+        pathname: workStudentAssessmentClearMarkPath(3, 4),
+        body: { notes: "Late", date: "2026-09-01", weight: 2 },
+      }),
+    ).resolves.toEqual({
+      statusCode: 200,
+      body: { kept: false },
+    });
+    expect(received).toEqual({
+      workId: 3,
+      studentId: 4,
+      notes: "Late",
+      date: "2026-09-01",
+      weight: 2,
+    });
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "GET",
+        pathname: workStudentAssessmentClearMarkPath(3, 4),
+      }),
+    ).resolves.toEqual({
+      statusCode: 404,
+      body: { error: "Not found." },
     });
   });
 

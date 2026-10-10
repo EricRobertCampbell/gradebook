@@ -31,7 +31,7 @@ import { describeError, type DisplayError } from "../errors";
 import { parseRequiredNumber } from "../form-numbers";
 import { handleGradeMarkKeyDown } from "../grade-mark-navigation";
 import {
-  deleteAssessment,
+  clearAssessmentMark,
   reorderCategories,
   reorderCategoryChildren,
   reorderSubcategoryWorks,
@@ -1134,6 +1134,8 @@ function MarkCells({
   const savedMark = workGrade.assessment
     ? markEntryValue(workGrade.assessment.status, workGrade.assessment.score)
     : "";
+  const hasNote = assessmentHasNote(workGrade.assessment?.notes);
+  const noteDescriptionId = `grade-note-${studentId}-${work.id}`;
   const [draft, setDraft] = useState(savedMark);
   const [saving, setSaving] = useState(false);
   const presentation = workGrade.assessment
@@ -1168,10 +1170,15 @@ function MarkCells({
       setSaving(true);
       onError(null);
       try {
-        await deleteAssessment({ workId: work.id, studentId });
+        await clearAssessmentMark({ workId: work.id, studentId });
         await onChanged();
       } catch (caught) {
-        onError(describeError(caught, "The mark could not be cleared."));
+        onError(
+          describeError(
+            caught,
+            "The mark could not be cleared. Refresh the gradebook and try again.",
+          ),
+        );
       } finally {
         setSaving(false);
       }
@@ -1206,6 +1213,7 @@ function MarkCells({
             inputMode="decimal"
             value={draft}
             aria-label={`${work.name} mark`}
+            aria-describedby={hasNote ? noteDescriptionId : undefined}
             data-student-id={studentId}
             data-work-id={work.id}
             disabled={saving}
@@ -1222,6 +1230,12 @@ function MarkCells({
           >
             <PencilIcon />
           </button>
+          {hasNote ? (
+            <span className="grade-note-mark" id={noteDescriptionId}>
+              <span className="visually-hidden">Note for {work.name}</span>
+              <span aria-hidden="true">note</span>
+            </span>
+          ) : null}
         </div>
       </td>
       <td className={cellClassName}>
@@ -1436,6 +1450,10 @@ function classAverages(gradebook: ClassGradebook) {
       })),
     })),
   };
+}
+
+function assessmentHasNote(notes: string | undefined): boolean {
+  return (notes ?? "").trim() !== "";
 }
 
 function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): AssessmentEditor {

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  editorExemptChecked,
-  editorMarkSave,
-  editorNhiChecked,
-  nhiClearsExistingMark,
-} from "../../shared/grades";
+import { editorExemptChecked, editorNhiChecked, nhiClearsExistingMark } from "../../shared/grades";
 import type { Adjustment, Assessment, GradeWork, StudentWorkGrade } from "../../shared/ipc";
+import { assessmentScoreIsRequired, planAssessmentSave } from "../assessment-save";
 import { describeError, type DisplayError } from "../errors";
 import { numberInputValue, parseOptionalNumber, parseRequiredNumber } from "../form-numbers";
-import { createAdjustment, deleteAdjustment, updateAdjustment, upsertAssessment } from "../grading";
+import {
+  clearAssessmentMark,
+  createAdjustment,
+  deleteAdjustment,
+  updateAdjustment,
+  upsertAssessment,
+} from "../grading";
 import "./common/ActionButton.css";
 import { ConfirmDeleteModal } from "./common/ConfirmDeleteModal";
 import { ErrorDisplay } from "./common/ErrorDisplay";
@@ -82,23 +84,37 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
     nhiInputRef.current?.focus();
   }, [pendingNhi]);
 
-  async function saveAssessmentRecord(): Promise<Assessment> {
-    const status = assessmentFields.nhi ? "nhi" : assessmentFields.exempt ? "exempt" : "counted";
-    const entered = assessmentFields.nhi ? null : parseOptionalNumber(assessmentFields.score);
-    const saved = editorMarkSave(status, entered);
+  async function saveAssessmentRecord(): Promise<Assessment | null> {
+    const weight = parseRequiredNumber(assessmentFields.weight, "A weight is required.");
+    const payload = {
+      workId: editor.work.id,
+      studentId: editor.studentId,
+      date: assessmentFields.date,
+      weight,
+      notes: assessmentFields.notes,
+    };
+    const plan = planAssessmentSave({
+      exempt: assessmentFields.exempt,
+      nhi: assessmentFields.nhi,
+      score: assessmentFields.score,
+      notes: assessmentFields.notes,
+      hasAssessment: editor.workGrade.assessment !== null,
+    });
 
-    if (!saved) {
-      throw new Error("Enter a mark.");
+    if (plan.kind === "clear") {
+      try {
+        await clearAssessmentMark(payload);
+      } catch (caught) {
+        throw clearMarkFailure(caught);
+      }
+
+      return null;
     }
 
     return upsertAssessment({
-      workId: editor.work.id,
-      studentId: editor.studentId,
-      score: saved.score,
-      date: assessmentFields.date,
-      weight: parseRequiredNumber(assessmentFields.weight, "A weight is required."),
-      notes: assessmentFields.notes,
-      status: saved.status,
+      ...payload,
+      score: plan.score,
+      status: plan.status,
     });
   }
 
@@ -111,7 +127,7 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
       await saveAssessmentRecord();
       await onChanged();
     } catch (caught) {
-      setError(describeError(caught, "The assessment could not be saved."));
+      setError(describeSaveError(caught, "The assessment could not be saved."));
     } finally {
       setSavingAssessment(false);
     }
@@ -123,7 +139,11 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
     setError(null);
 
     try {
-      const current = editor.workGrade.assessment ?? (await saveAssessmentRecord());
+      const saved = editor.workGrade.assessment ?? (await saveAssessmentRecord());
+      if (!saved) {
+        throw new Error("Enter a mark.");
+      }
+      const current = saved;
       const payload = {
         percentChange: parseOptionalNumber(adjustmentFields.percentChange),
         rawChange: parseOptionalNumber(adjustmentFields.rawChange),
@@ -141,7 +161,7 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
       setEditingId(null);
       await onChanged();
     } catch (caught) {
-      setError(describeError(caught, "The adjustment could not be saved."));
+      setError(describeSaveError(caught, "The adjustment could not be saved."));
     } finally {
       setSavingAdjustment(false);
     }
@@ -236,7 +256,13 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
             <form className="fields" onSubmit={(event) => void onSaveAssessment(event)}>
               <TextField
                 label="Score"
-                required={!assessmentFields.exempt && !assessmentFields.nhi}
+                required={assessmentScoreIsRequired({
+                  exempt: assessmentFields.exempt,
+                  nhi: assessmentFields.nhi,
+                  score: assessmentFields.score,
+                  notes: assessmentFields.notes,
+                  hasAssessment: editor.workGrade.assessment !== null,
+                })}
                 type="text"
                 inputMode="decimal"
                 value={assessmentFields.score}
@@ -431,11 +457,32 @@ export function GradeAssessmentModal({ editor, onClose, onChanged }: GradeAssess
   );
 }
 
+function describeSaveError(caught: unknown, fallback: string) {
+  if (isClearMarkFailure(caught)) {
+    return describeError(
+      caught.clearMarkCause,
+      "The mark could not be cleared. Refresh the gradebook and try again.",
+    );
+  }
+
+  return describeError(caught, fallback);
+}
+
+function isClearMarkFailure(error: unknown): error is Error & { clearMarkCause: unknown } {
+  return error instanceof Error && "clearMarkCause" in error;
+}
+
+function clearMarkFailure(cause: unknown): Error & { clearMarkCause: unknown } {
+  return Object.assign(new Error("The mark could not be cleared."), {
+    clearMarkCause: cause,
+  });
+}
+
 function fieldsFromAssessment(work: GradeWork, assessment: Assessment | null): AssessmentFields {
   const status = assessment?.status ?? "counted";
 
   return {
-    score: status === "nhi" ? "" : numberInputValue(assessment?.score),
+    score: status === "nhi" || status === "unmarked" ? "" : numberInputValue(assessment?.score),
     date: assessment?.date ?? todayIsoDate(),
     weight: String(assessment?.weight ?? work.weight),
     notes: assessment?.notes ?? "",

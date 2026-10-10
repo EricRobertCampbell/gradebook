@@ -31,7 +31,7 @@ Before a wider beta:
 
 Whenever convenient:
 
-- Confirm before clearing a mark in the grade table (emptying a cell and leaving it currently deletes the assessment)
+- Confirm before clearing a mark in the grade table (emptying a cell deletes the assessment when it has no note, and otherwise removes the mark and its adjustments and keeps the note)
 
 ## Stack
 
@@ -77,7 +77,7 @@ Production data uses Electron’s `app.getPath("userData")`, not the source tree
 
 On startup the main process creates the database if needed, applies outstanding migrations, and inserts a `database_status` row when that key is missing. School years live in `school_years`, each with a unique non-empty name. Classes live in `classes`, with a display name, an internal name unique within the school year, optional subject and section, a required description, and a foreign key to `school_years`. Students and parents are separate tables, linked many-to-many through `student_parents`. Class enrolments are many-to-many through `class_students`.
 
-Grading is organised as class → category (unit) → sub-category → work. A student’s mark on a piece of work is an assessment (`counted`, `exempt`, or `nhi`). An assessment may have many adjustments. An assessment percent is the score divided by the work’s maximum; raw adjustments are applied to the score, and percent adjustments are applied to that ratio. Sub-category, category, and course percents are weighted averages. Exempt assessments are left out of those averages, whether or not a score is stored. A stored exempt score is still shown. Not handed in counts as zero. Excusing a category or sub-category for one student drops the work it covers out of that student’s averages without changing the stored assessment; clearing the excuse counts the stored marks again. Removing a student from a class deletes that student’s assessments and excuses for the class. Assessments left by a removal that happened before this behaviour stay in the database, and enrolling the student again shows them.
+Grading is organised as class → category (unit) → sub-category → work. A student’s mark on a piece of work is an assessment (`counted`, `exempt`, `nhi`, or `unmarked`), and an assessment may have many adjustments and one note. An assessment percent is the score divided by the work’s maximum; raw adjustments are applied to the score, and percent adjustments are applied to that ratio. Sub-category, category, and course percents are weighted averages. Exempt assessments and unmarked notes are left out of those averages. A stored exempt score is still shown. Not handed in counts as zero. Excusing a category or sub-category for one student drops the work it covers out of that student’s averages without changing the stored assessment; clearing the excuse counts the stored marks again. Emptying a grade-table mark deletes the assessment when it has no note; otherwise the mark and its adjustments are removed and the note remains. Removing a student from a class deletes that student’s assessments and excuses for the class. Assessments left by a removal that happened before this behaviour stay in the database, and enrolling the student again shows them.
 
 ## Prerequisites
 

@@ -1,5 +1,10 @@
 import { eq, inArray, or, type SQL } from "drizzle-orm";
-import { assessmentPercent, weightedAverage, workCountsTowardAverage } from "../../shared/grades";
+import {
+  assessmentHasVisibleMark,
+  assessmentPercent,
+  weightedAverage,
+  workCountsTowardAverage,
+} from "../../shared/grades";
 import {
   classLookupInputSchema,
   type Adjustment,
@@ -144,6 +149,26 @@ function buildStudentRow(
   };
 }
 
+function workPercent(
+  assessment: Assessment | null,
+  work: GradeWork,
+  adjustments: Array<Adjustment>,
+): number | null {
+  if (!assessment || !assessmentHasVisibleMark(assessment.status)) {
+    return null;
+  }
+
+  if (assessment.status === "nhi") {
+    return 0;
+  }
+
+  if (assessment.score === null) {
+    return null;
+  }
+
+  return assessmentPercent(assessment.score, work.maximumScore, adjustments);
+}
+
 function buildWorkGrade(
   studentId: number,
   work: GradeWork,
@@ -154,13 +179,7 @@ function buildWorkGrade(
 ): StudentWorkGrade {
   const assessment = assessmentsByKey.get(assessmentKey(studentId, work.id)) ?? null;
   const workAdjustments = assessment ? (adjustmentsByAssessment.get(assessment.id) ?? []) : [];
-  const percent = !assessment
-    ? null
-    : assessment.status === "nhi"
-      ? 0
-      : assessment.score === null
-        ? null
-        : assessmentPercent(assessment.score, work.maximumScore, workAdjustments);
+  const percent = workPercent(assessment, work, workAdjustments);
 
   return {
     workId: work.id,

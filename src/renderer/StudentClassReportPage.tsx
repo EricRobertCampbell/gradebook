@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
+  assessmentHasVisibleMark,
   formatGradePercent,
   formatWeightPercent,
   markEntryValue,
@@ -8,7 +9,6 @@ import {
 } from "../shared/grades";
 import { sortCategoryChildren } from "../shared/grading-order";
 import type {
-  Adjustment,
   Class,
   ClassGradebook,
   GradeCategory,
@@ -32,6 +32,7 @@ import { getClassGradebook } from "./grading";
 import { classPath, parseRouteId, studentClassDataPath, studentPath } from "./paths";
 import { getSchoolYear } from "./school-years";
 import "./StudentClassReportPage.css";
+import { workReportDetails } from "./student-class-report-details";
 import { getStudent } from "./students";
 
 export function StudentClassReportPage() {
@@ -289,7 +290,7 @@ function WorkReportRow({ work, workGrade }: { work: GradeWork; workGrade: Studen
   const presentation = workGrade.assessment
     ? markPresentation(workGrade.assessment.status, workGrade.assessment.score)
     : null;
-  const details = workDetails(work, workGrade);
+  const details = workReportDetails(work, workGrade);
   const statusClassName = presentation
     ? [
         "individual-report-work",
@@ -319,56 +320,12 @@ function WorkReportRow({ work, workGrade }: { work: GradeWork; workGrade: Studen
   );
 }
 
-function workDetails(work: GradeWork, workGrade: StudentWorkGrade): Array<string> {
-  const details: Array<string> = [];
-
-  if (work.notes) {
-    details.push(work.notes);
-  }
-
-  if (workGrade.assessment?.notes) {
-    details.push(workGrade.assessment.notes);
-  }
-
-  for (const adjustment of workGrade.adjustments) {
-    details.push(adjustmentDetail(adjustment));
-  }
-
-  return details;
-}
-
-function adjustmentDetail(adjustment: Adjustment): string {
-  const parts: Array<string> = [adjustment.description];
-
-  if (adjustment.rawChange !== null) {
-    parts.push(`raw ${formatSigned(adjustment.rawChange)}`);
-  }
-
-  if (adjustment.percentChange !== null) {
-    parts.push(`percent ${formatSigned(adjustment.percentChange)}`);
-  }
-
-  if (adjustment.notes) {
-    parts.push(adjustment.notes);
-  }
-
-  return parts.join(" · ");
-}
-
 function reportScore(workGrade: StudentWorkGrade): string {
   const assessment = workGrade.assessment;
 
-  if (!assessment) {
+  if (!assessment || !assessmentHasVisibleMark(assessment.status)) {
     return "—";
   }
 
   return markEntryValue(assessment.status, assessment.score);
-}
-
-function formatSigned(value: number): string {
-  if (value > 0) {
-    return `+${value}`;
-  }
-
-  return String(value);
 }
