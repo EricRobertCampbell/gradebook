@@ -1,12 +1,17 @@
 import { init, type ECharts, type EChartsOption } from "echarts";
 import { useEffect, useRef } from "react";
+import { distributionAnnotations } from "../../shared/distribution-annotations";
 import type { DistributionBin, WorkDistribution } from "../../shared/grade-distribution";
 import { goalMarkAxisPercent } from "../../shared/grades";
 import { chartColours, type ChartColours } from "../chart-colours";
+import { cutoffItemStyle, referenceMarkLines } from "../distribution-mark-style";
 import {
   axisPercentLabel,
   binTooltipLines,
   densityTooltipLine,
+  escapeHtml,
+  readProperty,
+  readString,
 } from "../work-distribution-tooltip";
 import "./WorkDistributionChart.css";
 
@@ -66,8 +71,6 @@ function echartsOption(
   highlightedStudentId?: number,
   goalMark?: number | null,
 ): EChartsOption {
-  const cutoffPercent = distribution.cutoff * 100;
-
   return {
     color: [colours.density],
     textStyle: {
@@ -132,7 +135,11 @@ function echartsOption(
         clip: false,
         data: distribution.bins.map((bin) => ({
           value: [bin.axisPercent, bin.count],
-          itemStyle: barItemStyle(bin, colours, highlightedStudentId),
+          itemStyle: cutoffItemStyle(
+            bin.belowCutoff,
+            isHighlightedBin(bin, highlightedStudentId),
+            colours,
+          ),
         })),
         markLine: {
           symbol: "none",
@@ -142,7 +149,10 @@ function echartsOption(
             fontSize: 11,
             position: "insideEndTop",
           },
-          data: verticalMarks(cutoffPercent, colours, goalMarkAxisPercent(goalMark)),
+          data: referenceMarkLines(
+            distributionAnnotations(distribution.cutoff, highlightedStudentId, goalMark),
+            colours,
+          ),
         },
       },
       {
@@ -158,42 +168,6 @@ function echartsOption(
       },
     ],
   };
-}
-
-function verticalMarks(
-  cutoffPercent: number,
-  colours: ChartColours,
-  goalPercent: number | null,
-): Array<{
-  xAxis: number;
-  name: string;
-  label: { formatter: string };
-  lineStyle: { color: string; type: "solid" | "dashed" | "dotted"; width: number };
-}> {
-  const marks: Array<{
-    xAxis: number;
-    name: string;
-    label: { formatter: string };
-    lineStyle: { color: string; type: "solid" | "dashed" | "dotted"; width: number };
-  }> = [
-    {
-      xAxis: cutoffPercent,
-      name: "Cutoff",
-      label: { formatter: "Cutoff" },
-      lineStyle: { color: colours.cutoff, type: "dashed", width: 1.5 },
-    },
-  ];
-
-  if (goalPercent !== null) {
-    marks.push({
-      xAxis: goalPercent,
-      name: "Goal",
-      label: { formatter: "Goal" },
-      lineStyle: { color: colours.goal, type: "solid", width: 2 },
-    });
-  }
-
-  return marks;
 }
 
 function tooltipHtml(
@@ -263,48 +237,6 @@ function firstPairNumber(value: unknown): number | null {
   return null;
 }
 
-function readString(record: unknown, key: string): string | null {
-  const value = readProperty(record, key);
-  return typeof value === "string" ? value : null;
-}
-
-function readProperty(record: unknown, key: string): unknown {
-  if (typeof record !== "object" || record === null || !(key in record)) {
-    return null;
-  }
-
-  const properties: Record<string, unknown> = {};
-
-  for (const [entryKey, entryValue] of Object.entries(record)) {
-    properties[entryKey] = entryValue;
-  }
-
-  return properties[key];
-}
-
-function barItemStyle(
-  bin: DistributionBin,
-  colours: ChartColours,
-  highlightedStudentId?: number,
-): {
-  color: string;
-  borderColor: string;
-  borderWidth: number;
-} {
-  const regular = bin.belowCutoff ? colours.belowCutoff : colours.atOrAboveCutoff;
-  const highlighted = isHighlightedBin(bin, highlightedStudentId);
-
-  return {
-    color: highlighted
-      ? bin.belowCutoff
-        ? colours.belowCutoffHighlight
-        : colours.atOrAboveCutoffHighlight
-      : regular,
-    borderColor: regular,
-    borderWidth: highlighted ? 2 : 0,
-  };
-}
-
 function isHighlightedBin(bin: DistributionBin, highlightedStudentId?: number): boolean {
   return (
     highlightedStudentId !== undefined &&
@@ -321,12 +253,4 @@ function chartAriaLabel(highlightedStudentId?: number, goalMark?: number | null)
   }
 
   return `Score distribution as a histogram with a density curve, with this student's bin highlighted${goalText}`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }

@@ -2,6 +2,7 @@ import {
   kernelDensityEstimation,
   mean as statisticsMean,
   median as statisticsMedian,
+  quantile,
 } from "simple-statistics";
 import { workCountsTowardAverage } from "./grades";
 import { sortCategoryChildren } from "./grading-order";
@@ -179,6 +180,72 @@ export function workDistribution(
   };
 }
 
+export interface BoxplotSummary {
+  low: number;
+  q1: number;
+  median: number;
+  q3: number;
+  high: number;
+}
+
+export function boxplotSummary(percents: Array<number>): BoxplotSummary | null {
+  if (percents.length === 0) {
+    return null;
+  }
+
+  const q1 = quantile(percents, 0.25);
+  const q3 = quantile(percents, 0.75);
+  const iqr = q3 - q1;
+
+  return {
+    low: whisker(percents, q1, iqr, "low"),
+    q1,
+    median: statisticsMedian(percents),
+    q3,
+    high: whisker(percents, q3, iqr, "high"),
+  };
+}
+
+export function raincloudAxisPercent(percent: number): number {
+  if (percent < 0) {
+    return 0;
+  }
+
+  if (percent > 1) {
+    return 100;
+  }
+
+  return percent * 100;
+}
+
+export function raincloudJitter(marks: Array<WorkMark>): Array<number> {
+  const groups = new Map<number, Array<number>>();
+
+  marks.forEach((mark, index) => {
+    const axis = raincloudAxisPercent(mark.percent);
+    const group = groups.get(axis) ?? [];
+    group.push(index);
+    groups.set(axis, group);
+  });
+
+  const offsets = marks.map(() => 0);
+
+  for (const indexes of groups.values()) {
+    const ordered = [...indexes].sort((left, right) => {
+      const leftId = marks[left]?.studentId ?? 0;
+      const rightId = marks[right]?.studentId ?? 0;
+      return leftId - rightId;
+    });
+    const span = ordered.length - 1;
+
+    ordered.forEach((markIndex, position) => {
+      offsets[markIndex] = span === 0 ? 0 : (position - span / 2) / (span / 2);
+    });
+  }
+
+  return offsets;
+}
+
 function finiteMark(row: StudentGradeRow, percent: number | null): Array<WorkMark> {
   if (percent === null || !Number.isFinite(percent)) {
     return [];
@@ -292,4 +359,27 @@ function hasSpread(percents: Array<number>): boolean {
   }
 
   return percents.some((percent) => percent !== first);
+}
+
+function whisker(
+  percents: Array<number>,
+  quartile: number,
+  iqr: number,
+  edge: "low" | "high",
+): number {
+  if (iqr === 0) {
+    return quartile;
+  }
+
+  const fence = edge === "low" ? quartile - 1.5 * iqr : quartile + 1.5 * iqr;
+  const inside = percents.filter((percent) =>
+    edge === "low" ? percent >= fence : percent <= fence,
+  );
+  const first = inside[0];
+
+  if (first === undefined) {
+    return quartile;
+  }
+
+  return edge === "low" ? Math.min(...inside) : Math.max(...inside);
 }

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { countableMarksForWork, findClassWork, listClassWorks } from "../shared/grade-distribution";
+import { workGoalMark } from "../shared/goal-marks";
 import type { Class, ClassGradebook, SchoolYear, Work } from "../shared/ipc";
+import { personDisplayName } from "../shared/person-name";
 import { getClassById } from "./classes";
 import "./ClassDataPage.css";
 import "./components/common/BackLink.css";
@@ -19,6 +21,7 @@ export function ClassDataPage() {
   const [schoolClass, setSchoolClass] = useState<Class | null>(null);
   const [gradebook, setGradebook] = useState<ClassGradebook | null>(null);
   const [workId, setWorkId] = useState<number | null>(null);
+  const [studentId, setStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<DisplayError | null>(null);
   const classHref = schoolClass && schoolYear ? classPath(schoolYear.id, schoolClass.id) : "/";
@@ -26,6 +29,7 @@ export function ClassDataPage() {
   const loadClass = useCallback(async () => {
     if (!classId) {
       setError("That class was not found.");
+      setStudentId(null);
       setLoading(false);
       return;
     }
@@ -49,11 +53,17 @@ export function ClassDataPage() {
       setSchoolClass(loadedClass);
       setGradebook(loadedGradebook);
       setWorkId(firstWorkWithMarks?.id ?? null);
+      setStudentId((current) =>
+        current !== null && loadedGradebook.students.some((row) => row.student.id === current)
+          ? current
+          : null,
+      );
     } catch (caught) {
       setSchoolYear(null);
       setSchoolClass(null);
       setGradebook(null);
       setWorkId(null);
+      setStudentId(null);
       setError(describeError(caught, "That class was not found."));
     } finally {
       setLoading(false);
@@ -99,12 +109,37 @@ export function ClassDataPage() {
             ))}
           </SelectField>
 
+          {gradebook ? (
+            <SelectField
+              label="Student"
+              value={studentId ?? ""}
+              disabled={gradebook.students.length === 0}
+              onChange={(event) => setStudentId(parseSelectedStudentId(event.target.value))}
+            >
+              {gradebook.students.length === 0 ? (
+                <option value="">No students in this class</option>
+              ) : (
+                <option value="">None</option>
+              )}
+              {gradebook.students.map((row) => (
+                <option key={row.student.id} value={row.student.id}>
+                  {personDisplayName(row.student)}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
+
           {works.length === 0 ? (
             <p className="muted">
               Add assessments from class settings before a distribution can be shown.
             </p>
           ) : work && gradebook ? (
-            <WorkDistributionPanel work={work} gradebook={gradebook} />
+            <WorkDistributionPanel
+              work={work}
+              gradebook={gradebook}
+              highlightedStudentId={studentId ?? undefined}
+              goalMark={studentId === null ? null : workGoalMark(gradebook, studentId, work.id)}
+            />
           ) : null}
         </section>
       ) : null}
@@ -122,6 +157,10 @@ function selectedWork(gradebook: ClassGradebook | null, workId: number | null): 
   }
 
   return findClassWork(gradebook.categories, workId);
+}
+
+function parseSelectedStudentId(value: string): number | null {
+  return parseRouteId(value) ?? null;
 }
 
 function parseSelectedWorkId(value: string): number | null {

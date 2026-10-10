@@ -1,3 +1,4 @@
+import type { BoxplotSummary } from "../shared/grade-distribution";
 import { formatGradePercent } from "../shared/grades";
 import type {
   DensityPoint,
@@ -42,7 +43,15 @@ export function axisPercentLabel(value: number): string {
   return `${value}%`;
 }
 
-function markTooltipLine(mark: WorkMark, highlightedStudentId?: number): string {
+export function boxplotTooltipLines(box: BoxplotSummary): Array<string> {
+  return [
+    `Median ${formatGradePercent(box.median)}`,
+    `Lower quartile ${formatGradePercent(box.q1)}`,
+    `Upper quartile ${formatGradePercent(box.q3)}`,
+  ];
+}
+
+export function markTooltipLine(mark: WorkMark, highlightedStudentId?: number): string {
   const label = `${mark.name} (${formatGradePercent(mark.percent)})`;
 
   if (highlightedStudentId !== undefined && mark.studentId === highlightedStudentId) {
@@ -50,4 +59,36 @@ function markTooltipLine(mark: WorkMark, highlightedStudentId?: number): string 
   }
 
   return label;
+}
+
+export function readString(record: unknown, key: string): string | null {
+  const value = readProperty(record, key);
+  return typeof value === "string" ? value : null;
+}
+
+export function readNumber(record: unknown, key: string): number | null {
+  const value = readProperty(record, key);
+  return typeof value === "number" ? value : null;
+}
+
+export function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+export function readProperty(record: unknown, key: string): unknown {
+  if (typeof record !== "object" || record === null || !(key in record)) {
+    return null;
+  }
+
+  const properties: Record<string, unknown> = {};
+
+  for (const [entryKey, entryValue] of Object.entries(record)) {
+    properties[entryKey] = entryValue;
+  }
+
+  return properties[key];
 }
