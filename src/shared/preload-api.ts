@@ -25,6 +25,10 @@ import type {
   DeleteResult,
   GoalMarkSetInput,
   GoalMarkSetResult,
+  ExcuseSetAllInput,
+  ExcuseSetAllResult,
+  ExcuseSetInput,
+  ExcuseSetResult,
   EnrolledClass,
   RecordIdInput,
   ReorderResult,
@@ -103,6 +107,10 @@ export type GradebookApi = {
   };
   goalMarks: {
     set: (input: GoalMarkSetInput) => Promise<GoalMarkSetResult>;
+  };
+  excuses: {
+    set: (input: ExcuseSetInput) => Promise<ExcuseSetResult>;
+    setAll: (input: ExcuseSetAllInput) => Promise<ExcuseSetAllResult>;
   };
   adjustments: {
     create: (input: AdjustmentCreateInput) => Promise<Adjustment>;

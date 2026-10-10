@@ -348,4 +348,37 @@ describe("grading contracts", () => {
       reordered: true,
     });
   });
+
+  it("requires an excuse to name exactly one category or sub-category", () => {
+    expect(
+      ipcContracts[ipcChannels.excuseSet].input.parse({
+        categoryId: 4,
+        studentId: 2,
+        excused: true,
+      }),
+    ).toMatchObject({ categoryId: 4, studentId: 2, excused: true });
+    expect(
+      ipcContracts[ipcChannels.excuseSetAll].input.parse({
+        subcategoryId: 3,
+        excused: false,
+      }),
+    ).toMatchObject({ subcategoryId: 3, excused: false });
+    expect(ipcContracts[ipcChannels.excuseSet].output.parse({ excused: true })).toEqual({
+      excused: true,
+    });
+    expect(
+      ipcContracts[ipcChannels.excuseSetAll].output.parse({ excusedStudentIds: [2, 5] }),
+    ).toEqual({ excusedStudentIds: [2, 5] });
+    expect(() =>
+      ipcContracts[ipcChannels.excuseSet].input.parse({
+        categoryId: 4,
+        subcategoryId: 3,
+        studentId: 2,
+        excused: true,
+      }),
+    ).toThrow("An excuse needs exactly one category or sub-category.");
+    expect(() => ipcContracts[ipcChannels.excuseSetAll].input.parse({ excused: true })).toThrow(
+      "An excuse needs exactly one category or sub-category.",
+    );
+  });
 });

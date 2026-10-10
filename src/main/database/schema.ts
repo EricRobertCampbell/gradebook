@@ -190,6 +190,35 @@ export const goalMarks = sqliteTable(
   ],
 );
 
+export const excuses = sqliteTable(
+  "excuses",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    studentId: integer("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+    subcategoryId: integer("subcategory_id").references(() => subcategories.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    check(
+      "excuses_one_target",
+      sql`(
+        (${table.categoryId} IS NOT NULL AND ${table.subcategoryId} IS NULL)
+        OR (${table.categoryId} IS NULL AND ${table.subcategoryId} IS NOT NULL)
+      )`,
+    ),
+    uniqueIndex("excuses_student_category_unique")
+      .on(table.studentId, table.categoryId)
+      .where(sql`${table.categoryId} IS NOT NULL`),
+    uniqueIndex("excuses_student_subcategory_unique")
+      .on(table.studentId, table.subcategoryId)
+      .where(sql`${table.subcategoryId} IS NOT NULL`),
+  ],
+);
+
 export const adjustments = sqliteTable("adjustments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   assessmentId: integer("assessment_id")

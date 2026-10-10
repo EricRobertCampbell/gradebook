@@ -49,25 +49,17 @@ describe("bootstrapDatabase", () => {
 
     // An older branch can create goal_marks under a different journal tag. After
     // rebase, 0010_goal_marks still needs to record itself without failing.
-    const latest = first.sqlite
-      .prepare(
-        "SELECT created_at AS createdAt FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1",
-      )
-      .get();
-
-    if (!isMigrationTimestamp(latest)) {
-      throw new Error("Expected an applied migration timestamp.");
-    }
-
-    first.sqlite
-      .prepare("DELETE FROM __drizzle_migrations WHERE created_at = ?")
-      .run(latest.createdAt);
+    // Later migrations have to be pending too, so drop the tables they create.
+    const goalMarksAt = await migrationTimestamp(migrationsFolder, "0010_goal_marks");
+    first.sqlite.exec("DROP TABLE IF EXISTS excuses");
+    first.sqlite.prepare("DELETE FROM __drizzle_migrations WHERE created_at >= ?").run(goalMarksAt);
     first.sqlite.close();
 
     const reopened = await bootstrapDatabase({ databasePath, migrationsFolder });
 
     try {
       expect(tableNames(reopened.sqlite)).toContain("goal_marks");
+      expect(tableNames(reopened.sqlite)).toContain("excuses");
     } finally {
       reopened.sqlite.close();
     }
@@ -141,12 +133,44 @@ function isJournalEntry(value: unknown): value is { idx: number } {
   );
 }
 
-function isMigrationTimestamp(value: unknown): value is { createdAt: number } {
+async function migrationTimestamp(migrationsFolder: string, tag: string): Promise<number> {
+  const journal: unknown = JSON.parse(
+    await fs.readFile(path.join(migrationsFolder, "meta", "_journal.json"), "utf8"),
+  );
+
+  if (!isTimestampJournal(journal)) {
+    throw new Error("Expected a Drizzle migration journal.");
+  }
+
+  const entry = journal.entries.find((item) => item.tag === tag);
+
+  if (!entry) {
+    throw new Error(`Expected migration ${tag}.`);
+  }
+
+  return entry.when;
+}
+
+function isTimestampJournal(
+  value: unknown,
+): value is { entries: Array<{ tag: string; when: number }> } {
   return (
     typeof value === "object" &&
     value !== null &&
-    "createdAt" in value &&
-    typeof value.createdAt === "number"
+    "entries" in value &&
+    Array.isArray(value.entries) &&
+    value.entries.every(isTimestampEntry)
+  );
+}
+
+function isTimestampEntry(value: unknown): value is { tag: string; when: number } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "tag" in value &&
+    typeof value.tag === "string" &&
+    "when" in value &&
+    typeof value.when === "number"
   );
 }
 

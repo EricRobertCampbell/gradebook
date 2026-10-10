@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, or, type SQL } from "drizzle-orm";
 import {
   classLookupInputSchema,
   classStudentInputSchema,
@@ -11,7 +11,17 @@ import {
   type StudentIdInput,
 } from "../../shared/ipc";
 import { getClass } from "./classes";
-import { classStudents, classes, schoolYears, students } from "./schema";
+import {
+  assessments,
+  categories,
+  classStudents,
+  classes,
+  excuses,
+  schoolYears,
+  students,
+  subcategories,
+  works,
+} from "./schema";
 import type { GradebookDatabase } from "./status";
 import { requireStudent } from "./students";
 
@@ -88,19 +98,65 @@ export async function removeStudentFromClass(
   const parsed = parseClassStudentInput(input);
   const schoolClass = await getClass(db, parsed);
   await requireStudent(db, parsed.studentId);
+  await requireStudentEnrolled(db, schoolClass.id, parsed.studentId);
+  const scope = await classRemovalScope(db, schoolClass.id);
 
-  const removed = await db
-    .delete(classStudents)
-    .where(
-      and(eq(classStudents.classId, schoolClass.id), eq(classStudents.studentId, parsed.studentId)),
-    )
-    .returning();
+  db.transaction((tx) => {
+    if (scope.workIds.length > 0) {
+      tx.delete(assessments)
+        .where(
+          and(
+            eq(assessments.studentId, parsed.studentId),
+            inArray(assessments.workId, scope.workIds),
+          ),
+        )
+        .run();
+    }
 
-  if (!removed[0]) {
-    throw new Error("That student is not enrolled in this class.");
-  }
+    const excuseFilter = excuseScopeFilter(parsed.studentId, scope);
+    if (excuseFilter) {
+      tx.delete(excuses).where(excuseFilter).run();
+    }
+
+    const removed = tx
+      .delete(classStudents)
+      .where(
+        and(
+          eq(classStudents.classId, schoolClass.id),
+          eq(classStudents.studentId, parsed.studentId),
+        ),
+      )
+      .returning()
+      .all();
+
+    if (!removed[0]) {
+      throw new Error("That student is not enrolled in this class.");
+    }
+  });
 
   return { deleted: true };
+}
+
+export async function requireStudentEnrolled(
+  db: GradebookDatabase,
+  classId: number,
+  studentId: number,
+): Promise<void> {
+  const schoolClass = await db.select().from(classes).where(eq(classes.id, classId)).limit(1);
+
+  if (!schoolClass[0]) {
+    throw new Error("That class was not found.");
+  }
+
+  const enrolment = await db
+    .select()
+    .from(classStudents)
+    .where(and(eq(classStudents.classId, classId), eq(classStudents.studentId, studentId)))
+    .limit(1);
+
+  if (!enrolment[0]) {
+    throw new Error("That student is not in this class.");
+  }
 }
 
 function parseLookupInput(input: ClassLookupInput): ClassLookupInput {
@@ -139,6 +195,71 @@ function describeEnrolmentError(error: unknown): Error {
   }
 
   return error instanceof Error ? error : new Error(String(error));
+}
+
+async function classRemovalScope(
+  db: GradebookDatabase,
+  classId: number,
+): Promise<{ categoryIds: Array<number>; subcategoryIds: Array<number>; workIds: Array<number> }> {
+  const categoryRows = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(eq(categories.classId, classId));
+  const categoryIds = categoryRows.map((row) => row.id);
+  const subcategoryRows =
+    categoryIds.length === 0
+      ? []
+      : await db
+          .select({ id: subcategories.id })
+          .from(subcategories)
+          .where(inArray(subcategories.categoryId, categoryIds));
+  const subcategoryIds = subcategoryRows.map((row) => row.id);
+  const workFilters = [
+    ...(categoryIds.length > 0 ? [inArray(works.categoryId, categoryIds)] : []),
+    ...(subcategoryIds.length > 0 ? [inArray(works.subcategoryId, subcategoryIds)] : []),
+  ];
+  const workFilter = anyOf(workFilters);
+  const workRows = workFilter
+    ? await db.select({ id: works.id }).from(works).where(workFilter)
+    : [];
+
+  return {
+    categoryIds,
+    subcategoryIds,
+    workIds: workRows.map((row) => row.id),
+  };
+}
+
+function excuseScopeFilter(
+  studentId: number,
+  scope: { categoryIds: Array<number>; subcategoryIds: Array<number> },
+): SQL | undefined {
+  const targetFilter = anyOf([
+    ...(scope.categoryIds.length > 0 ? [inArray(excuses.categoryId, scope.categoryIds)] : []),
+    ...(scope.subcategoryIds.length > 0
+      ? [inArray(excuses.subcategoryId, scope.subcategoryIds)]
+      : []),
+  ]);
+
+  if (!targetFilter) {
+    return undefined;
+  }
+
+  return and(eq(excuses.studentId, studentId), targetFilter);
+}
+
+function anyOf(filters: Array<SQL>): SQL | undefined {
+  const [first, ...rest] = filters;
+
+  if (!first) {
+    return undefined;
+  }
+
+  if (rest.length === 0) {
+    return first;
+  }
+
+  return or(first, ...rest);
 }
 
 function isUniqueConstraintError(error: unknown): boolean {

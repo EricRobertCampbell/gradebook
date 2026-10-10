@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { asc, eq, inArray, or } from "drizzle-orm";
 import {
   categoryCreateInputSchema,
   categoryReorderChildrenInputSchema,
@@ -33,7 +33,8 @@ import {
 import { uniqueCopyName } from "../../shared/copy-name";
 import { nextSortOrder, sameIdSet, sortCategoryChildren } from "../../shared/grading-order";
 import { getClass } from "./classes";
-import { categories, classStudents, subcategories, works } from "./schema";
+import { requireStudentEnrolled } from "./enrolments";
+import { categories, subcategories, works } from "./schema";
 import type { GradebookDatabase } from "./status";
 
 export async function getGradingStructure(
@@ -530,15 +531,7 @@ export async function requireWorkInClass(
 ): Promise<{ work: Work; classId: number }> {
   const work = await requireWork(db, workId);
   const category = await categoryForWork(db, work);
-  const enrolment = await db
-    .select()
-    .from(classStudents)
-    .where(and(eq(classStudents.classId, category.classId), eq(classStudents.studentId, studentId)))
-    .limit(1);
-
-  if (!enrolment[0]) {
-    throw new Error("That student is not in this class.");
-  }
+  await requireStudentEnrolled(db, category.classId, studentId);
 
   return { work, classId: category.classId };
 }

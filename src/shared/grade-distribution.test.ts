@@ -57,6 +57,22 @@ describe("countableMarksForWork", () => {
     ]);
     expect(countableMarksForWork(gradebook, 2)).toEqual([]);
   });
+
+  it("skips a counted mark while the work is excused", () => {
+    const gradebook = gradebookFixture();
+    const row = gradebook.students[0];
+    const work = row?.categories[0]?.works[0];
+
+    if (!row || !work) {
+      throw new Error("The fixture is missing a counted mark.");
+    }
+
+    row.categories[0]?.works.splice(0, 1, { ...work, excused: true });
+
+    expect(countableMarksForWork(gradebook, 1)).toEqual([
+      { studentId: 2, name: "Blair", percent: 0 },
+    ]);
+  });
 });
 
 describe("countableCourseMarks", () => {
@@ -280,12 +296,14 @@ function studentRow(
         categoryId: 10,
         percent: null,
         goalMark: null,
+        excused: false,
         works: works.filter((work) => work.workId === 1),
         subcategories: [
           {
             subcategoryId: 20,
             percent: null,
             goalMark: null,
+            excused: false,
             works: works.filter((work) => work.workId === 2),
           },
         ],
@@ -321,6 +339,7 @@ function countedGrade(workId: number, studentId: number, percent: number): Stude
       status: "counted",
     },
     goalMark: null,
+    excused: false,
   };
 }
 
@@ -340,6 +359,7 @@ function nhiGrade(workId: number, studentId: number): StudentWorkGrade {
       status: "nhi",
     },
     goalMark: null,
+    excused: false,
   };
 }
 
@@ -359,6 +379,7 @@ function exemptGrade(workId: number, studentId: number): StudentWorkGrade {
       status: "exempt",
     },
     goalMark: null,
+    excused: false,
   };
 }
 
@@ -369,5 +390,6 @@ function missingGrade(workId: number): StudentWorkGrade {
     adjustments: [],
     assessment: null,
     goalMark: null,
+    excused: false,
   };
 }

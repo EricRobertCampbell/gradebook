@@ -2,7 +2,6 @@ import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
-  assessmentCountsTowardAverage,
   formatGradePercent,
   formatWeightPercent,
   gradeCellCommit,
@@ -10,6 +9,7 @@ import {
   markInputErrorMessage,
   markPresentation,
   mean,
+  workCountsTowardAverage,
 } from "../../shared/grades";
 import {
   categoryChildToken,
@@ -49,9 +49,11 @@ import "./ClassGradeTable.css";
 import { ErrorDisplay } from "./common/ErrorDisplay";
 import { ChevronIcon } from "./common/icons/ChevronIcon";
 import { DocumentIcon } from "./common/icons/DocumentIcon";
+import { ExcuseIcon } from "./common/icons/ExcuseIcon";
 import { GraphIcon } from "./common/icons/GraphIcon";
 import { PencilIcon } from "./common/icons/PencilIcon";
 import { PlusIcon } from "./common/icons/PlusIcon";
+import { CategoryExcuseModal } from "./CategoryExcuseModal";
 import { GradeAssessmentModal, type AssessmentEditor } from "./GradeAssessmentModal";
 import { GradeStructureEditor, type GradeStructureEditorTarget } from "./GradeStructureEditor";
 
@@ -73,6 +75,7 @@ export function ClassGradeTable({
   const [tableError, setTableError] = useState<DisplayError | null>(null);
   const [assessmentEditor, setAssessmentEditor] = useState<AssessmentEditor | null>(null);
   const [structureEditor, setStructureEditor] = useState<GradeStructureEditorTarget | null>(null);
+  const [excuseEditor, setExcuseEditor] = useState<ExcuseEditor | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
@@ -144,6 +147,8 @@ export function ClassGradeTable({
       return next;
     });
   }
+
+  const excuseTarget = excuseEditor ? findExcuseTarget(gradebook, excuseEditor) : null;
 
   return (
     <div className="grade-table-wrap">
@@ -217,6 +222,10 @@ export function ClassGradeTable({
                           })
                         }
                         addWorkLabel={`Add work to ${category.name}`}
+                        onExcuse={() =>
+                          setExcuseEditor({ categoryId: category.id, subcategoryId: null })
+                        }
+                        excuseLabel={`Excuse students for ${category.name}`}
                         onAddGoal={
                           showGoal ? undefined : () => revealGoal(categoryGoalKey(category.id))
                         }
@@ -287,6 +296,9 @@ export function ClassGradeTable({
                           kind: "create-work",
                           subcategoryId: subcategory.id,
                         })
+                      }
+                      onExcuseSubcategory={(subcategory) =>
+                        setExcuseEditor({ categoryId: category.id, subcategoryId: subcategory.id })
                       }
                       onEditWork={(work) => setStructureEditor({ kind: "work", work })}
                       onReorderChildren={(tokens) =>
@@ -408,6 +420,16 @@ export function ClassGradeTable({
           onChanged={onChanged}
         />
       ) : null}
+      {excuseTarget ? (
+        <CategoryExcuseModal
+          gradebook={gradebook}
+          category={excuseTarget.category}
+          subcategory={excuseTarget.subcategory}
+          onClose={() => setExcuseEditor(null)}
+          onChanged={onChanged}
+          onError={setTableError}
+        />
+      ) : null}
     </div>
   );
 }
@@ -422,6 +444,7 @@ function CategorySubheaders({
   onToggleSubcategory,
   onEditSubcategory,
   onAddWork,
+  onExcuseSubcategory,
   onEditWork,
   onReorderChildren,
 }: {
@@ -434,6 +457,7 @@ function CategorySubheaders({
   onToggleSubcategory: (subcategoryId: number) => void;
   onEditSubcategory: (subcategory: GradeSubcategory) => void;
   onAddWork: (subcategory: GradeSubcategory) => void;
+  onExcuseSubcategory: (subcategory: GradeSubcategory) => void;
   onEditWork: (work: GradeWork) => void;
   onReorderChildren: (tokens: Array<string>) => void;
 }) {
@@ -501,6 +525,8 @@ function CategorySubheaders({
                 editLabel={`Edit ${subcategory.name}`}
                 onAdd={() => onAddWork(subcategory)}
                 addLabel={`Add work to ${subcategory.name}`}
+                onExcuse={() => onExcuseSubcategory(subcategory)}
+                excuseLabel={`Excuse students for ${subcategory.name}`}
                 onAddGoal={
                   showGoal ? undefined : () => onRevealGoal(subcategoryGoalKey(subcategory.id))
                 }
@@ -550,6 +576,8 @@ function HeaderLabel({
   addLabel,
   onAddWork,
   addWorkLabel,
+  onExcuse,
+  excuseLabel,
   onAddGoal,
   addGoalLabel,
   collapsed,
@@ -568,6 +596,8 @@ function HeaderLabel({
   addLabel?: string;
   onAddWork?: () => void;
   addWorkLabel?: string;
+  onExcuse?: () => void;
+  excuseLabel?: string;
   onAddGoal?: () => void;
   addGoalLabel?: string;
   collapsed?: boolean;
@@ -610,6 +640,16 @@ function HeaderLabel({
             onClick={onAddWork}
           >
             <PlusIcon />
+          </button>
+        ) : null}
+        {onExcuse && excuseLabel ? (
+          <button
+            type="button"
+            className="grade-header-edit"
+            aria-label={excuseLabel}
+            onClick={onExcuse}
+          >
+            <ExcuseIcon />
           </button>
         ) : null}
         {onAddGoal && addGoalLabel ? (
@@ -846,6 +886,7 @@ function GradeRow({
             key={category.id}
             category={category}
             categoryPercent={categoryGrade?.percent ?? null}
+            categoryExcused={categoryGrade?.excused ?? false}
             subcategoryGrades={categoryGrade?.subcategories ?? []}
             workGrades={categoryGrade?.works ?? []}
             collapsed={categoryIsCollapsed(category, collapsedCategories)}
@@ -876,6 +917,7 @@ function GradeRow({
 function CategoryCells({
   category,
   categoryPercent,
+  categoryExcused,
   subcategoryGrades,
   workGrades,
   collapsed,
@@ -889,6 +931,7 @@ function CategoryCells({
 }: {
   category: GradeCategory;
   categoryPercent: number | null;
+  categoryExcused: boolean;
   subcategoryGrades: StudentGradeRow["categories"][number]["subcategories"];
   workGrades: Array<StudentWorkGrade>;
   collapsed: boolean;
@@ -903,7 +946,7 @@ function CategoryCells({
   if (collapsed) {
     return (
       <>
-        <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>
+        <SummaryCell excused={categoryExcused} percent={categoryPercent} />
         {visibleGoals.categories.has(category.id) ? (
           <GoalCell
             label={`Goal mark for ${category.name}`}
@@ -929,6 +972,7 @@ function CategoryCells({
             adjustments: [],
             percent: null,
             goalMark: null,
+            excused: false,
           };
 
           return (
@@ -956,6 +1000,8 @@ function CategoryCells({
             key={subcategory.id}
             subcategory={subcategory}
             subcategoryPercent={subcategoryGrade?.percent ?? null}
+            subcategoryExcused={subcategoryGrade?.excused ?? false}
+            categoryExcused={categoryExcused}
             workGrades={subcategoryGrade?.works ?? []}
             collapsed={subcategoryIsCollapsed(subcategory, collapsedSubcategories)}
             visibleGoals={visibleGoals}
@@ -967,7 +1013,7 @@ function CategoryCells({
           />
         );
       })}
-      <td className="grade-table-summary">{formatGradePercent(categoryPercent)}</td>
+      <SummaryCell excused={categoryExcused} percent={categoryPercent} />
       {visibleGoals.categories.has(category.id) ? (
         <GoalCell
           label={`Goal mark for ${category.name}`}
@@ -984,6 +1030,8 @@ function CategoryCells({
 function SubcategoryCells({
   subcategory,
   subcategoryPercent,
+  subcategoryExcused,
+  categoryExcused,
   workGrades,
   collapsed,
   visibleGoals,
@@ -995,6 +1043,8 @@ function SubcategoryCells({
 }: {
   subcategory: GradeSubcategory;
   subcategoryPercent: number | null;
+  subcategoryExcused: boolean;
+  categoryExcused: boolean;
   workGrades: Array<StudentWorkGrade>;
   collapsed: boolean;
   visibleGoals: VisibleGoals;
@@ -1004,10 +1054,12 @@ function SubcategoryCells({
   onError: (error: DisplayError | null) => void;
   onOpenAssessment: (work: GradeWork, workGrade: StudentWorkGrade) => void;
 }) {
+  const excused = subcategoryExcused || categoryExcused;
+
   if (collapsed) {
     return (
       <>
-        <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>
+        <SummaryCell excused={excused} percent={subcategoryPercent} />
         {visibleGoals.subcategories.has(subcategory.id) ? (
           <GoalCell
             label={`Goal mark for ${subcategory.name}`}
@@ -1032,6 +1084,7 @@ function SubcategoryCells({
           adjustments: [],
           percent: null,
           goalMark: null,
+          excused: false,
         };
 
         return (
@@ -1047,7 +1100,7 @@ function SubcategoryCells({
           />
         );
       })}
-      <td className="grade-table-summary">{formatGradePercent(subcategoryPercent)}</td>
+      <SummaryCell excused={excused} percent={subcategoryPercent} />
       {visibleGoals.subcategories.has(subcategory.id) ? (
         <GoalCell
           label={`Goal mark for ${subcategory.name}`}
@@ -1355,10 +1408,7 @@ function classAverages(gradebook: ClassGradebook) {
           rows.map((row) => {
             const workGrade = row.categories[categoryIndex]?.works[workIndex];
 
-            return workGrade?.assessment &&
-              assessmentCountsTowardAverage(workGrade.assessment.status)
-              ? workGrade.percent
-              : null;
+            return workGrade && workCountsTowardAverage(workGrade) ? workGrade.percent : null;
           }),
         ),
       })),
@@ -1378,9 +1428,7 @@ function classAverages(gradebook: ClassGradebook) {
           return {
             percent: mean(
               workGrades.map((workGrade) =>
-                workGrade?.assessment && assessmentCountsTowardAverage(workGrade.assessment.status)
-                  ? workGrade.percent
-                  : null,
+                workGrade && workCountsTowardAverage(workGrade) ? workGrade.percent : null,
               ),
             ),
           };
@@ -1414,6 +1462,42 @@ function latestEditor(gradebook: ClassGradebook, editor: AssessmentEditor): Asse
   }
 
   return editor;
+}
+
+interface ExcuseEditor {
+  categoryId: number;
+  subcategoryId: number | null;
+}
+
+function findExcuseTarget(
+  gradebook: ClassGradebook,
+  editor: ExcuseEditor,
+): { category: GradeCategory; subcategory: GradeSubcategory | null } | null {
+  const category = gradebook.categories.find((item) => item.id === editor.categoryId);
+
+  if (!category) {
+    return null;
+  }
+
+  if (editor.subcategoryId === null) {
+    return { category, subcategory: null };
+  }
+
+  const subcategory = category.subcategories.find((item) => item.id === editor.subcategoryId);
+
+  if (!subcategory) {
+    return null;
+  }
+
+  return { category, subcategory };
+}
+
+function SummaryCell({ excused, percent }: { excused: boolean; percent: number | null }) {
+  if (excused) {
+    return <td className="grade-table-summary grade-table-summary--excused">Excused</td>;
+  }
+
+  return <td className="grade-table-summary">{formatGradePercent(percent)}</td>;
 }
 
 function workHeaderDetail(work: GradeWork): string {

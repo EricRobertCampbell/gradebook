@@ -17,6 +17,7 @@ import {
   mean,
   parseSpecialMark,
   weightedAverage,
+  workCountsTowardAverage,
 } from "./grades";
 
 describe("assessmentPercent", () => {
@@ -91,6 +92,42 @@ describe("assessmentCountsTowardAverage", () => {
     expect(assessmentCountsTowardAverage("counted")).toBe(true);
     expect(assessmentCountsTowardAverage("nhi")).toBe(true);
     expect(assessmentCountsTowardAverage("exempt")).toBe(false);
+  });
+});
+
+describe("workCountsTowardAverage", () => {
+  it("drops covered work and work with no countable assessment", () => {
+    expect(
+      workCountsTowardAverage({
+        excused: true,
+        assessment: { status: "counted" },
+      }),
+    ).toBe(false);
+    expect(
+      workCountsTowardAverage({
+        excused: true,
+        assessment: { status: "nhi" },
+      }),
+    ).toBe(false);
+    expect(workCountsTowardAverage({ excused: false, assessment: null })).toBe(false);
+    expect(
+      workCountsTowardAverage({
+        excused: false,
+        assessment: { status: "exempt" },
+      }),
+    ).toBe(false);
+    expect(
+      workCountsTowardAverage({
+        excused: false,
+        assessment: { status: "counted" },
+      }),
+    ).toBe(true);
+    expect(
+      workCountsTowardAverage({
+        excused: false,
+        assessment: { status: "nhi" },
+      }),
+    ).toBe(true);
   });
 });
 

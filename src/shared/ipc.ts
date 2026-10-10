@@ -50,6 +50,8 @@ export const ipcChannels = {
   assessmentUpsert: "assessment:upsert",
   assessmentDelete: "assessment:delete",
   goalMarkSet: "goalMark:set",
+  excuseSet: "excuse:set",
+  excuseSetAll: "excuse:setAll",
   adjustmentCreate: "adjustment:create",
   adjustmentUpdate: "adjustment:update",
   adjustmentDelete: "adjustment:delete",
@@ -472,12 +474,14 @@ export const studentWorkGradeSchema = z.object({
   adjustments: z.array(adjustmentSchema),
   percent: z.number().nullable(),
   goalMark: z.number().nullable(),
+  excused: z.boolean(),
 });
 
 export const studentSubcategoryGradeSchema = z.object({
   subcategoryId: z.number().int(),
   percent: z.number().nullable(),
   goalMark: z.number().nullable(),
+  excused: z.boolean(),
   works: z.array(studentWorkGradeSchema),
 });
 
@@ -485,6 +489,7 @@ export const studentCategoryGradeSchema = z.object({
   categoryId: z.number().int(),
   percent: z.number().nullable(),
   goalMark: z.number().nullable(),
+  excused: z.boolean(),
   subcategories: z.array(studentSubcategoryGradeSchema),
   works: z.array(studentWorkGradeSchema),
 });
@@ -515,6 +520,37 @@ export const goalMarkSetInputSchema = z
 
 export const goalMarkSetResultSchema = z.object({
   goalMark: z.number().nullable(),
+});
+
+export const excuseSetInputSchema = z
+  .object({
+    categoryId: z.number().int().positive().nullable().optional(),
+    subcategoryId: z.number().int().positive().nullable().optional(),
+    studentId: z.number().int().positive(),
+    excused: z.boolean(),
+  })
+  .refine(
+    (value) => [value.categoryId, value.subcategoryId].filter((id) => id != null).length === 1,
+    "An excuse needs exactly one category or sub-category.",
+  );
+
+export const excuseSetAllInputSchema = z
+  .object({
+    categoryId: z.number().int().positive().nullable().optional(),
+    subcategoryId: z.number().int().positive().nullable().optional(),
+    excused: z.boolean(),
+  })
+  .refine(
+    (value) => [value.categoryId, value.subcategoryId].filter((id) => id != null).length === 1,
+    "An excuse needs exactly one category or sub-category.",
+  );
+
+export const excuseSetResultSchema = z.object({
+  excused: z.boolean(),
+});
+
+export const excuseSetAllResultSchema = z.object({
+  excusedStudentIds: z.array(z.number().int()),
 });
 
 export const classGradebookSchema = z.object({
@@ -559,6 +595,10 @@ export type StudentGradeRow = z.infer<typeof studentGradeRowSchema>;
 export type ClassGradebook = z.infer<typeof classGradebookSchema>;
 export type GoalMarkSetInput = z.infer<typeof goalMarkSetInputSchema>;
 export type GoalMarkSetResult = z.infer<typeof goalMarkSetResultSchema>;
+export type ExcuseSetInput = z.infer<typeof excuseSetInputSchema>;
+export type ExcuseSetAllInput = z.infer<typeof excuseSetAllInputSchema>;
+export type ExcuseSetResult = z.infer<typeof excuseSetResultSchema>;
+export type ExcuseSetAllResult = z.infer<typeof excuseSetAllResultSchema>;
 
 export const ipcContracts = {
   [ipcChannels.databaseGetStatus]: {
@@ -748,6 +788,14 @@ export const ipcContracts = {
   [ipcChannels.goalMarkSet]: {
     input: goalMarkSetInputSchema,
     output: goalMarkSetResultSchema,
+  },
+  [ipcChannels.excuseSet]: {
+    input: excuseSetInputSchema,
+    output: excuseSetResultSchema,
+  },
+  [ipcChannels.excuseSetAll]: {
+    input: excuseSetAllInputSchema,
+    output: excuseSetAllResultSchema,
   },
   [ipcChannels.adjustmentCreate]: {
     input: adjustmentCreateInputSchema,
