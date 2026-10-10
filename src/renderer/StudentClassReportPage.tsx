@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { assessmentStatusCode, formatGradePercent, formatWeightPercent } from "../shared/grades";
+import {
+  formatGradePercent,
+  formatWeightPercent,
+  markEntryValue,
+  markPresentation,
+} from "../shared/grades";
 import { sortCategoryChildren } from "../shared/grading-order";
 import type {
   Adjustment,
@@ -277,13 +282,20 @@ function SubcategoryReportRows({
 }
 
 function WorkReportRow({ work, workGrade }: { work: GradeWork; workGrade: StudentWorkGrade }) {
-  const statusCode = workGrade.assessment
-    ? assessmentStatusCode(workGrade.assessment.status)
+  const presentation = workGrade.assessment
+    ? markPresentation(workGrade.assessment.status, workGrade.assessment.score)
     : null;
   const details = workDetails(work, workGrade);
-  const statusClassName = statusCode
-    ? `individual-report-work individual-report-work--${workGrade.assessment?.status}`
+  const statusClassName = presentation
+    ? [
+        "individual-report-work",
+        presentation.tone === "counted" ? "" : `individual-report-work--${presentation.tone}`,
+        presentation.greyScore ? "individual-report-work--exempt-score" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
     : "individual-report-work";
+  const scoreClassName = presentation?.greyScore ? "individual-report-exempt-score" : undefined;
 
   return (
     <tr className={statusClassName}>
@@ -294,9 +306,11 @@ function WorkReportRow({ work, workGrade }: { work: GradeWork; workGrade: Studen
         ) : null}
       </th>
       <td>{formatWeightPercent(work.weight)}</td>
-      <td>{reportScore(workGrade)}</td>
+      <td className={scoreClassName}>{reportScore(workGrade)}</td>
       <td>{numberInputValue(work.maximumScore)}</td>
-      <td>{statusCode ?? formatGradePercent(workGrade.percent)}</td>
+      <td className={scoreClassName}>
+        {presentation?.code ?? formatGradePercent(workGrade.percent)}
+      </td>
     </tr>
   );
 }
@@ -344,7 +358,7 @@ function reportScore(workGrade: StudentWorkGrade): string {
     return "—";
   }
 
-  return assessmentStatusCode(assessment.status) ?? numberInputValue(assessment.score);
+  return markEntryValue(assessment.status, assessment.score);
 }
 
 function formatSigned(value: number): string {

@@ -20,6 +20,7 @@ import {
   studentParentPath,
   studentParentsPath,
   studentPath,
+  workStudentAssessmentPath,
 } from "../shared/development-api";
 import { handleDevelopmentApiRequest, type DevelopmentApiHandlers } from "./development-api";
 
@@ -627,6 +628,42 @@ describe("handleDevelopmentApiRequest", () => {
         sortOrder: 0,
       },
     });
+  });
+
+  it("accepts a null assessment score and still requires the field", async () => {
+    let score: number | null | undefined;
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        upsertAssessment: async (input) => {
+          score = input.score;
+          return {
+            id: 1,
+            workId: input.workId,
+            studentId: input.studentId,
+            score: input.score,
+            date: input.date ?? "2026-09-01",
+            weight: input.weight ?? 1,
+            notes: input.notes ?? "",
+            status: input.status ?? "exempt",
+          };
+        },
+        method: "PUT",
+        pathname: workStudentAssessmentPath(3, 4),
+        body: { score: null, status: "exempt" },
+      }),
+    ).resolves.toMatchObject({ statusCode: 200 });
+    expect(score).toBeNull();
+
+    await expect(
+      handleDevelopmentApiRequest({
+        ...unusedHandlers,
+        method: "PUT",
+        pathname: workStudentAssessmentPath(3, 4),
+        body: { status: "counted" },
+      }),
+    ).rejects.toThrow("A score is required.");
   });
 
   it("does not expose any other route", async () => {

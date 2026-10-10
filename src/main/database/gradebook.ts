@@ -147,7 +147,9 @@ function buildWorkGrade(
     ? null
     : assessment.status === "nhi"
       ? 0
-      : assessmentPercent(assessment.score, work.maximumScore, workAdjustments);
+      : assessment.score === null
+        ? null
+        : assessmentPercent(assessment.score, work.maximumScore, workAdjustments);
 
   return {
     workId: work.id,

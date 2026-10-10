@@ -127,3 +127,154 @@ const SPECIAL_MARKS = [
 ] as const;
 
 type SpecialMarkStatus = (typeof SPECIAL_MARKS)[number]["status"];
+
+export interface MarkPresentation {
+  tone: "counted" | "exempt" | "nhi";
+  code: "E" | "NHI" | null;
+  greyScore: boolean;
+}
+
+export function markPresentation(status: string, score: number | null): MarkPresentation {
+  if (status === "nhi") {
+    return { tone: "nhi", code: "NHI", greyScore: false };
+  }
+
+  if (status === "exempt") {
+    if (score === null) {
+      return { tone: "exempt", code: "E", greyScore: false };
+    }
+
+    return { tone: "exempt", code: null, greyScore: true };
+  }
+
+  return { tone: "counted", code: null, greyScore: false };
+}
+
+export function markEntryValue(status: string, score: number | null): string {
+  const presentation = markPresentation(status, score);
+
+  if (presentation.code) {
+    return presentation.code;
+  }
+
+  if (score === null) {
+    return "";
+  }
+
+  return String(score);
+}
+
+export type GradeCellCommit =
+  | { kind: "ignore" }
+  | { kind: "delete" }
+  | { kind: "invalid" }
+  | { kind: "save"; status: "counted" | "exempt" | "nhi"; score: number | null };
+
+export function gradeCellCommit(
+  current: { status: string; score: number | null } | null,
+  value: string,
+): GradeCellCommit {
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    return current ? { kind: "delete" } : { kind: "ignore" };
+  }
+
+  const specialStatus = parseSpecialMark(trimmed);
+
+  if (specialStatus === "exempt") {
+    if (current?.status === "exempt" && current.score === null) {
+      return { kind: "ignore" };
+    }
+
+    return { kind: "save", status: "exempt", score: null };
+  }
+
+  if (specialStatus === "nhi") {
+    if (current?.status === "nhi" && current.score === null) {
+      return { kind: "ignore" };
+    }
+
+    return { kind: "save", status: "nhi", score: null };
+  }
+
+  const score = Number(trimmed);
+
+  if (!Number.isFinite(score)) {
+    return { kind: "invalid" };
+  }
+
+  if (current?.status === "exempt" && current.score !== null) {
+    if (current.score === score) {
+      return { kind: "ignore" };
+    }
+
+    return { kind: "save", status: "exempt", score };
+  }
+
+  if (current?.status === "counted" && current.score === score) {
+    return { kind: "ignore" };
+  }
+
+  return { kind: "save", status: "counted", score };
+}
+
+export function editorMarkSave(
+  status: "counted" | "exempt" | "nhi",
+  score: number | null,
+): { status: "counted" | "exempt" | "nhi"; score: number | null } | null {
+  if (status === "nhi") {
+    return { status: "nhi", score: null };
+  }
+
+  if (status === "exempt") {
+    return { status: "exempt", score };
+  }
+
+  if (score === null) {
+    return null;
+  }
+
+  return { status: "counted", score };
+}
+
+export function nhiClearsExistingMark(savedScore: number | null, field: string): boolean {
+  if (savedScore !== null && Number.isFinite(savedScore)) {
+    return true;
+  }
+
+  const trimmed = field.trim();
+
+  if (trimmed === "") {
+    return false;
+  }
+
+  return Number.isFinite(Number(trimmed));
+}
+
+export type EditorFlagFields = {
+  score: string;
+  exempt: boolean;
+  nhi: boolean;
+};
+
+export function editorExemptChecked(fields: EditorFlagFields, checked: boolean): EditorFlagFields {
+  if (!checked) {
+    return { ...fields, exempt: false };
+  }
+
+  return {
+    ...fields,
+    exempt: true,
+    nhi: false,
+    score: fields.nhi ? "" : fields.score,
+  };
+}
+
+export function editorNhiChecked(fields: EditorFlagFields, checked: boolean): EditorFlagFields {
+  if (!checked) {
+    return { ...fields, nhi: false, score: "0" };
+  }
+
+  return { ...fields, nhi: true, exempt: false, score: "" };
+}

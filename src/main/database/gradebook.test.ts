@@ -95,6 +95,154 @@ describe("class gradebook", () => {
     }
   });
 
+  it("shows an exempt score without rolling it up, and ignores a cleared exempt mark", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const extraWork = await createWork(db, {
+        subcategoryId: setup.subcategory.id,
+        name: "Worksheet 2",
+        notes: "",
+        maximumScore: 10,
+        weight: 1,
+      });
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 10,
+      });
+      await upsertAssessment(db, {
+        workId: extraWork.id,
+        studentId: setup.student.id,
+        score: 8,
+        status: "exempt",
+      });
+
+      const gradebook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const subcategory = gradebook.students[0]?.categories[0]?.subcategories[0];
+      const exemptWork = subcategory?.works.find((workGrade) => workGrade.workId === extraWork.id);
+
+      expect(exemptWork?.percent).toBeCloseTo(0.8);
+      expect(subcategory?.percent).toBe(1);
+
+      await upsertAssessment(db, {
+        workId: extraWork.id,
+        studentId: setup.student.id,
+        score: null,
+        status: "exempt",
+      });
+      const cleared = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const clearedWork = cleared.students[0]?.categories[0]?.subcategories[0]?.works.find(
+        (workGrade) => workGrade.workId === extraWork.id,
+      );
+
+      expect(clearedWork?.assessment?.score).toBeNull();
+      expect(clearedWork?.percent).toBeNull();
+      expect(cleared.students[0]?.categories[0]?.subcategories[0]?.percent).toBe(1);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("stores not handed in without a score and counts a later zero", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+      const saved = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+        status: "nhi",
+      });
+
+      expect(saved.score).toBeNull();
+      expect(saved.status).toBe("nhi");
+
+      const gradebook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+      const workGrade = gradebook.students[0]?.categories[0]?.subcategories[0]?.works[0];
+
+      expect(workGrade?.percent).toBe(0);
+      expect(gradebook.students[0]?.coursePercent).toBe(0);
+
+      const counted = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 0,
+        status: "counted",
+      });
+
+      expect(counted).toMatchObject({ score: 0, status: "counted" });
+
+      const countedBook = await getClassGradebook(db, {
+        schoolYearName: "2024-2025",
+        internalName: "sci-9",
+      });
+
+      expect(countedBook.students[0]?.coursePercent).toBe(0);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("rejects a counted mark with no score, including when status is omitted", async () => {
+    const { db, sqlite } = await openTestDatabase();
+
+    try {
+      const setup = await seedScienceClass(db);
+
+      await expect(
+        upsertAssessment(db, {
+          workId: setup.work.id,
+          studentId: setup.student.id,
+          score: null,
+        }),
+      ).rejects.toThrow("Enter a mark.");
+
+      await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 8,
+      });
+
+      await expect(
+        upsertAssessment(db, {
+          workId: setup.work.id,
+          studentId: setup.student.id,
+          score: null,
+        }),
+      ).rejects.toThrow("Enter a mark.");
+
+      const exempt = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: null,
+        status: "exempt",
+      });
+      const zero = await upsertAssessment(db, {
+        workId: setup.work.id,
+        studentId: setup.student.id,
+        score: 0,
+        status: "exempt",
+      });
+
+      expect(exempt).toMatchObject({ score: null, status: "exempt" });
+      expect(zero).toMatchObject({ score: 0, status: "exempt" });
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it("counts not-handed-in assessments as zero", async () => {
     const { db, sqlite } = await openTestDatabase();
 

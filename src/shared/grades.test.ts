@@ -7,6 +7,13 @@ import {
   formatWeightPercent,
   goalMarkAxisPercent,
   markInputErrorMessage,
+  markPresentation,
+  markEntryValue,
+  gradeCellCommit,
+  editorExemptChecked,
+  editorMarkSave,
+  editorNhiChecked,
+  nhiClearsExistingMark,
   mean,
   parseSpecialMark,
   weightedAverage,
@@ -120,6 +127,148 @@ describe("parseSpecialMark", () => {
 describe("markInputErrorMessage", () => {
   it("lists every special mark code", () => {
     expect(markInputErrorMessage()).toBe("Enter a mark, E, or NHI.");
+  });
+});
+
+describe("mark presentation", () => {
+  it("shows a stored exempt score, including zero, and E when the score was cleared", () => {
+    expect(markPresentation("exempt", 0)).toEqual({
+      tone: "exempt",
+      code: null,
+      greyScore: true,
+    });
+    expect(markPresentation("exempt", 8)).toEqual({
+      tone: "exempt",
+      code: null,
+      greyScore: true,
+    });
+    expect(markPresentation("exempt", null)).toEqual({
+      tone: "exempt",
+      code: "E",
+      greyScore: false,
+    });
+    expect(markEntryValue("exempt", 0)).toBe("0");
+    expect(markEntryValue("exempt", null)).toBe("E");
+  });
+
+  it("shows NHI instead of a score, and a counted number as itself", () => {
+    expect(markPresentation("nhi", null)).toEqual({ tone: "nhi", code: "NHI", greyScore: false });
+    expect(markPresentation("nhi", 8)).toEqual({ tone: "nhi", code: "NHI", greyScore: false });
+    expect(markPresentation("counted", 8)).toEqual({
+      tone: "counted",
+      code: null,
+      greyScore: false,
+    });
+    expect(markEntryValue("nhi", 8)).toBe("NHI");
+    expect(markEntryValue("counted", 8)).toBe("8");
+  });
+});
+
+describe("grade cell commit", () => {
+  it("clears an exempt score when E is typed again", () => {
+    expect(gradeCellCommit({ status: "exempt", score: 8 }, "E")).toEqual({
+      kind: "save",
+      status: "exempt",
+      score: null,
+    });
+    expect(gradeCellCommit({ status: "exempt", score: null }, "e")).toEqual({ kind: "ignore" });
+  });
+
+  it("leaves an unchanged greyed exempt score exempt", () => {
+    expect(gradeCellCommit({ status: "exempt", score: 8 }, "8")).toEqual({ kind: "ignore" });
+    expect(gradeCellCommit({ status: "exempt", score: 8 }, "9")).toEqual({
+      kind: "save",
+      status: "exempt",
+      score: 9,
+    });
+  });
+
+  it("clears the score for NHI without keeping a previous number", () => {
+    expect(gradeCellCommit({ status: "exempt", score: 8 }, "NHI")).toEqual({
+      kind: "save",
+      status: "nhi",
+      score: null,
+    });
+    expect(gradeCellCommit({ status: "nhi", score: null }, "nhi")).toEqual({ kind: "ignore" });
+    expect(gradeCellCommit({ status: "nhi", score: 4 }, "NHI")).toEqual({
+      kind: "save",
+      status: "nhi",
+      score: null,
+    });
+  });
+
+  it("counts a number typed over E or NHI", () => {
+    expect(gradeCellCommit({ status: "exempt", score: null }, "6")).toEqual({
+      kind: "save",
+      status: "counted",
+      score: 6,
+    });
+    expect(gradeCellCommit({ status: "nhi", score: null }, "6")).toEqual({
+      kind: "save",
+      status: "counted",
+      score: 6,
+    });
+  });
+
+  it("deletes an existing mark when the cell is emptied and ignores an empty new cell", () => {
+    expect(gradeCellCommit({ status: "counted", score: 4 }, "")).toEqual({ kind: "delete" });
+    expect(gradeCellCommit(null, "")).toEqual({ kind: "ignore" });
+    expect(gradeCellCommit(null, "abc")).toEqual({ kind: "invalid" });
+  });
+});
+
+describe("editor mark save", () => {
+  it("keeps an exempt score, clears NHI, and requires a counted score", () => {
+    expect(editorMarkSave("exempt", 8)).toEqual({ status: "exempt", score: 8 });
+    expect(editorMarkSave("exempt", null)).toEqual({ status: "exempt", score: null });
+    expect(editorMarkSave("nhi", 8)).toEqual({ status: "nhi", score: null });
+    expect(editorMarkSave("counted", 0)).toEqual({ status: "counted", score: 0 });
+    expect(editorMarkSave("counted", null)).toBeNull();
+  });
+
+  it("treats a saved number or a numeric field as a mark NHI would clear", () => {
+    expect(nhiClearsExistingMark(8, "")).toBe(true);
+    expect(nhiClearsExistingMark(null, "0")).toBe(true);
+    expect(nhiClearsExistingMark(null, "")).toBe(false);
+    expect(nhiClearsExistingMark(null, "abc")).toBe(false);
+    expect(nhiClearsExistingMark(8, "abc")).toBe(true);
+  });
+
+  it("leaves a counted zero when NHI is turned off", () => {
+    expect(editorNhiChecked({ score: "", exempt: false, nhi: true }, false)).toEqual({
+      score: "0",
+      exempt: false,
+      nhi: false,
+    });
+  });
+
+  it("clears the score when Exempt replaces NHI", () => {
+    expect(editorExemptChecked({ score: "8", exempt: false, nhi: true }, true)).toEqual({
+      score: "",
+      exempt: true,
+      nhi: false,
+    });
+  });
+
+  it("keeps an entered score when Exempt is turned on or off", () => {
+    expect(editorExemptChecked({ score: "8", exempt: false, nhi: false }, true)).toEqual({
+      score: "8",
+      exempt: true,
+      nhi: false,
+    });
+    expect(editorExemptChecked({ score: "8", exempt: true, nhi: false }, false)).toEqual({
+      score: "8",
+      exempt: false,
+      nhi: false,
+    });
+  });
+
+  it("clears the score when NHI is applied", () => {
+    expect(editorNhiChecked({ score: "8", exempt: true, nhi: false }, true)).toEqual({
+      score: "",
+      exempt: false,
+      nhi: true,
+    });
   });
 });
 
