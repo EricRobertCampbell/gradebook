@@ -40,4 +40,4 @@ Do not create empty placeholder files.
 
 ## Architecture guidance
 
-Primary architecture and stack notes live in the repository `README.md` (Architecture, Databases, Stack, Commands). Cursor rules under `.cursor/rules/` capture coding conventions. When ADRs or architecture docs are added later under `readme/adr/` or `readme/architecture/`, planning and review skills should read those too.
+Primary architecture and stack notes live in the repository `README.md` (Architecture, Databases, Stack, Commands). Coding conventions live in `.agents/skills/code-review/references/conventions.md`. When ADRs or architecture docs are added later under `readme/adr/` or `readme/architecture/`, planning and review skills should read those too.

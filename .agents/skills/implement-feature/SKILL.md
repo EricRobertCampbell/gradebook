@@ -49,10 +49,10 @@ The repo's integration branch is `main`. When creating a feature branch for impl
 1. Understand the task.
 2. Read planning artifacts when they exist.
 3. Read relevant architecture guidance in `README.md` (and ADRs under `readme/adr/` when present) before making an architectural choice.
-4. Inspect the existing implementation and match its patterns. Frontend conventions are in [frontend.md](../code-review/references/frontend.md). Backend conventions are in [backend.md](../code-review/references/backend.md).
+4. Inspect the existing implementation and match its patterns. Read and follow [conventions.md](../code-review/references/conventions.md) before editing. Domain checks that reviews will apply are in [frontend.md](../code-review/references/frontend.md) and [backend.md](../code-review/references/backend.md).
 5. Implement incrementally. For Drizzle schema changes, follow [Database migrations](#database-migrations). For new IPC channels, wire shared contract, preload, main handler, and renderer caller together.
 6. Run the relevant checks: `npm run test` for focused or full Vitest runs, and `npm run check` before claiming the work is ready (typecheck, lint, and test).
-7. Review the resulting diff against the plan, when one exists, and the conventions above.
+7. Review the resulting diff against the plan, when one exists, and [conventions.md](../code-review/references/conventions.md).
 8. When a plan directory exists, update `checklist.md` as work is verified, not merely written, and record commands and results in `verification.md`. Add tasks the plan missed. Do not delete a cancelled task; mark it cancelled and say why.
 9. Verify the behaviour. For a UI change, exercise the affected flow in the app when browser or Electron tools are available. If they are not, say what was not verified.
 10. Apply [ADR consideration](#adr-consideration).
@@ -155,6 +155,7 @@ Read relevant ADRs before choosing an architecture, not only afterwards.
 
 ## Related
 
+- Coding conventions: [conventions.md](../code-review/references/conventions.md)
 - Planning: [plan-feature](../plan-feature/SKILL.md)
 - Plan review: [review-plan](../review-plan/SKILL.md)
 - Code review: [code-review](../code-review/SKILL.md)

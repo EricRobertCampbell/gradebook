@@ -17,7 +17,7 @@ Read the planning directory, usually `.ai/plans/<feature-slug>/`:
 - `decisions.md` when present
 - The requirements file named by the plan, usually `.ai/requirements/<feature-slug>.md`
 
-Then read the repository code and architecture guidance the plan depends on (`README.md`, `.cursor/rules/`, and any `readme/architecture/` or `readme/adr/` docs). Check claims in `findings.md` against the code. A plan that cites a pattern the repo does not have is a finding.
+Then read the repository code and architecture guidance the plan depends on (`README.md`, [conventions.md](../code-review/references/conventions.md), and any `readme/architecture/` or `readme/adr/` docs). Check claims in `findings.md` against the code. A plan that cites a pattern the repo does not have is a finding.
 
 Do not recommend a generic SQL API, renderer access to Node or SQLite, or hand-written Drizzle schema migrations that `npm run db:generate` should own.
 

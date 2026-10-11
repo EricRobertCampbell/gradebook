@@ -10,12 +10,13 @@ Apply this skill to changes under `src/renderer/`.
 Read and apply:
 
 - [findings.md](../code-review/references/findings.md)
+- [conventions.md](../code-review/references/conventions.md)
 - [frontend.md](../code-review/references/frontend.md)
 
 ## What to review
 
 - Match the surrounding component and state-management patterns. The app uses React, React Router, colocated CSS, and `window.gradebook` for data.
-- Named exports, conditional rendering (`condition ? … : null`), colocated CSS, `Array<T>`, the ban on new `as` assertions, and British English UI copy, as specified in [frontend.md](../code-review/references/frontend.md)
+- Coding conventions in [conventions.md](../code-review/references/conventions.md), including named exports, conditional rendering, colocated CSS, `Array<T>`, interfaces for object shapes, the ban on new `as` assertions, and British English
 - Renderer code stays free of Node, Electron, and SQLite imports
 - Hook dependencies and state that causes avoidable re-renders of a heavy tree (especially the grade table)
 - Loading, empty, and error states for data the user is waiting on

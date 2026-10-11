@@ -26,7 +26,7 @@ Human-facing product detail, commands, and current status live in [`README.md`](
 | `src/shared/` | Channel names, Zod contracts (`ipc.ts`), preload API types, shared pure helpers (e.g. grades). |
 | `drizzle/` | Generated SQL migrations from `npm run db:generate`. |
 | `.data/` | Local development SQLite (gitignored); never use in tests or packaged builds. |
-| `.cursor/rules/` | Coding conventions for agents (British English, `Array<T>`, no `as`, colocated CSS, utility order). |
+| `.agents/skills/code-review/references/conventions.md` | Coding conventions for every agent (British English, interfaces, `Array<T>`, no `as`, colocated CSS, utility order). |
 | `.ai/` | Persisted requirements and plans. See [`.ai/README.md`](.ai/README.md). |
 | `.agents/skills/` | Project agent skills (requirements → plan → implement → review). |
 
@@ -77,16 +77,14 @@ Typical order for substantial work: `/requirements` → `/plan-feature` → `/re
 Shared review conventions and severity scale:
 
 - [`.agents/skills/code-review/references/findings.md`](.agents/skills/code-review/references/findings.md)
+- [`.agents/skills/code-review/references/conventions.md`](.agents/skills/code-review/references/conventions.md)
 - [`.agents/skills/code-review/references/backend.md`](.agents/skills/code-review/references/backend.md)
 - [`.agents/skills/code-review/references/frontend.md`](.agents/skills/code-review/references/frontend.md)
 
 ## Conventions agents must respect
 
-- British English in UI copy, comments, commits, and identifiers we control (`colour`, `enrolment`, `initialise`).
-- Named exports; no new default exports.
-- `Array<T>` in type positions; no `as` assertions except `as const`.
-- Conditional render with `condition ? <Node /> : null`, not `&&`.
-- Colocated CSS next to the component/page; keep tokens in `src/renderer/styles.css`.
+Follow [`.agents/skills/code-review/references/conventions.md`](.agents/skills/code-review/references/conventions.md) for style: British English, `interface` for object shapes, `Array<T>`, no `as` except `as const`, named exports, conditional render with `condition ? <Node /> : null`, colocated CSS, and helpers below their callers.
+
 - New IPC work wires all four: `src/shared/ipc.ts` → preload → main handler → renderer caller.
 - Schema edits go in `src/main/database/schema.ts`, then `npm run db:generate`.
 - Tests use in-memory or temporary SQLite only.

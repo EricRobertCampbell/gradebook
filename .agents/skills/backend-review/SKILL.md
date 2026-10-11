@@ -10,6 +10,7 @@ Apply this skill to changes under `src/main/`, `src/preload/`, and `drizzle/`.
 Read and apply:
 
 - [findings.md](../code-review/references/findings.md)
+- [conventions.md](../code-review/references/conventions.md)
 - [backend.md](../code-review/references/backend.md)
 
 ## What to review
@@ -23,7 +24,7 @@ Read and apply:
 - Process isolation: no renderer imports of Node, Electron, or SQLite drivers
 - New IPC channels are registered with Zod input and output parsing
 
-Layout, imports, end-to-end IPC wiring, and migration severity are defined in [backend.md](../code-review/references/backend.md). Follow those mappings.
+Layout, end-to-end IPC wiring, and migration severity are defined in [backend.md](../code-review/references/backend.md). Follow those mappings. Import placement is in [conventions.md](../code-review/references/conventions.md).
 
 ## Database environments
 

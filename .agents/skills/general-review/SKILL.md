@@ -5,7 +5,7 @@ description: Review a Local Gradebook diff for correctness, regressions, error h
 
 # General review
 
-Review the diff for defects that are not specific to backend, frontend, IPC, security, or test conventions. Those domains have their own skills. Read [findings.md](../code-review/references/findings.md) and use it for every finding.
+Review the diff for defects that are not specific to backend, frontend, IPC, security, or test conventions. Those domains have their own skills. Read [findings.md](../code-review/references/findings.md) and [conventions.md](../code-review/references/conventions.md). Use findings.md for every finding.
 
 ## What to review
 
@@ -14,20 +14,15 @@ Review the diff for defects that are not specific to backend, frontend, IPC, sec
 - Error handling
 - Significant performance problems
 - Unnecessary complexity, duplication, and dead code
-- Consistency with existing project patterns and `.cursor/rules/`
+- Consistency with existing project patterns and [conventions.md](../code-review/references/conventions.md)
 - Whether a new abstraction is justified by a real repeated case
 - Whether a one-off special case ignores an existing shared abstraction that would be clearer and no harder to use
-- British English in comments, UI copy, and identifiers we control
 
-Prefer named constants over magic values.
-
-Order functions from general to specific. If function A calls function B, define A first and B after it. File-local utilities sit below the exported function or component that calls them, or in their own module.
-
-Across the renderer, also apply [frontend.md](../code-review/references/frontend.md) when the diff touches `src/renderer/**`. Across the main process, preload, and migrations, also apply [backend.md](../code-review/references/backend.md) when the diff touches `src/main/**`, `src/preload/**`, or `drizzle/**`. The matching specialized skill covers the domain checklist; do not repeat those findings here when `/code-review` is running both.
+Across the renderer, also apply [frontend.md](../code-review/references/frontend.md) when the diff touches `src/renderer/**`. Across the main process, preload, and migrations, also apply [backend.md](../code-review/references/backend.md) when the diff touches `src/main/**`, `src/preload/**`, or `drizzle/**`. The matching specialized skill covers the domain checklist; do not repeat those findings here when `/code-review` is running both. Coding conventions are checked from [conventions.md](../code-review/references/conventions.md); do not restate them here.
 
 ## Architecture guidance
 
-Primary architecture notes live in `README.md` (Architecture, Databases, Stack). Coding conventions live in `.cursor/rules/`.
+Primary architecture notes live in `README.md` (Architecture, Databases, Stack). Coding conventions live in [conventions.md](../code-review/references/conventions.md).
 
 1. Read the Architecture and Databases sections of `README.md` when the diff touches process boundaries, IPC, SQLite paths, or migrations.
 2. If `readme/architecture/*.md` exists, list those files, skip `README.md` and `TEMPLATE.md` inside that folder, and match any `paths` frontmatter globs to changed files. Read each matching doc in full.

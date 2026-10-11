@@ -4,12 +4,11 @@ Apply these checks to changes under `src/main/` and to Drizzle schema or migrati
 
 ## TypeScript and Electron main
 
+Style rules (interfaces, array types, `as` assertions, British English, imports, and utility placement) live in [conventions.md](conventions.md). Do not restate them here.
+
 - Follow existing main-process and database patterns.
 - Use type hints where the surrounding code does.
-- Prefer `Array<T>` over `T[]` in type annotations.
-- Do not add `as` type assertions except `as const`. Narrow with type guards, Zod, or explicit annotations. A new `as` assertion is High.
 - Do not introduce unnecessary abstractions.
-- Keep British English in comments and user-facing strings we control (`colour`, `initialise`, `enrolment`).
 
 ## Layout
 
@@ -25,10 +24,6 @@ Apply these checks to changes under `src/main/` and to Drizzle schema or migrati
 Domain modules under `src/main/database/` stay focused (for example `school-years.ts`, `classes.ts`, `gradebook.ts`). Shared pure grade maths belongs in `src/shared/` when both main and renderer need it.
 
 A new IPC channel must be wired end-to-end: channel and Zod contract in `src/shared/ipc.ts`, preload method in `src/preload/preload.ts` and `src/shared/preload-api.ts`, and a registered handler in the main process. Leaving any of those unwired is High.
-
-## Imports
-
-Put imports at the top of the file, not inside functions.
 
 ## Schema and migrations
 

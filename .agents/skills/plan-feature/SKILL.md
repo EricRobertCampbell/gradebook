@@ -30,7 +30,7 @@ Look for the relevant subset of:
 - Drizzle schema (`src/main/database/schema.ts`) and migrations under `drizzle/`
 - Existing similar implementations and patterns to reuse
 - Tests (`*.test.ts` beside modules)
-- Root `README.md` and `.cursor/rules/`
+- Root `README.md` and [conventions.md](../code-review/references/conventions.md)
 - ADRs in `readme/adr/` when present
 
 Record reusable patterns. Prefer extending an existing abstraction when it already covers the case. Note architectural implications, edge cases, task dependencies, and missing requirements.

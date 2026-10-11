@@ -11,7 +11,7 @@ Every code-review skill uses this severity scale and output format. Do not inven
 
 Critical and High findings are blocking. These glosses apply the existing scale; they do not add a new one.
 
-Use severity to communicate actual importance. A stylistic preference stays a suggestion. Do not raise it to High or Critical to make it look mandatory.
+Use severity to communicate actual importance. A deviation from [conventions.md](conventions.md) uses the mappings below. A stylistic preference that is not in that file stays a suggestion. Do not raise a convention deviation to High or Critical to make it look mandatory.
 
 Prioritize findings in this order:
 
@@ -28,7 +28,8 @@ Established mappings, already used in this repo:
 - A diff that contradicts architecture guidance in `README.md` (or a matching architecture doc under `readme/architecture/` when present) is **High**.
 - An intentional behaviour change that leaves matching architecture guidance stale is **Medium**.
 - A missing test is **Medium**, and only when it can hide a regression. Do not require a test for a trivial change that cannot hide one.
-- A new `as` type assertion (except `as const`) is **High**. See [frontend.md](frontend.md) and [backend.md](backend.md).
+- A new `as` type assertion (except `as const`) is **High**. See [conventions.md](conventions.md).
+- Any other deviation from [conventions.md](conventions.md) is **Low**.
 - A Drizzle schema field, constraint, or index change without the matching generated migration under `drizzle/` is **High**. See [backend.md](backend.md).
 - A migration that drops, truncates, rejects, or fails to copy existing data, when that loss is not an explicit part of the feature, is **Critical**. See [backend.md](backend.md).
 - A new IPC channel missing the shared contract, preload method, or main-process handler is **High**. See [backend.md](backend.md).

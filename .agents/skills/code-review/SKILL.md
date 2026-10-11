@@ -14,13 +14,14 @@ Orchestrate the specialized review skills. Do not restate their checklists here.
 3. Choose the specialized reviews that apply. Use [Which reviews to run](#which-reviews-to-run).
 4. Read each chosen skill and every reference it names. Apply those checks to the diff.
 5. Always include [general-review](../general-review/SKILL.md). It checks correctness, maintainability, and architecture guidance.
-6. Check user-facing error messages. See [User-facing error messages](#user-facing-error-messages).
-7. When the diff changes the database schema or a migration, evaluate it against existing data. See [Schema changes and existing data](#schema-changes-and-existing-data).
-8. Merge the findings into one list. Use the severity scale in [references/findings.md](references/findings.md).
-9. Drop duplicate comments. When two reviews report the same issue, keep one finding, use the higher severity, and name both sources.
-10. Report only issues that are actionable and reasonably well-supported.
-11. Distinguish defects from suggestions.
-12. Number the consolidated findings from 1, in the priority order in [references/findings.md](references/findings.md). Continue that sequence for optional suggestions. The reader uses these numbers to say which items to address or ignore.
+6. Read [references/conventions.md](references/conventions.md) in full and flag every deviation in the diff. Do not restate the rules here. Severity for those deviations is in [references/findings.md](references/findings.md).
+7. Check user-facing error messages. See [User-facing error messages](#user-facing-error-messages).
+8. When the diff changes the database schema or a migration, evaluate it against existing data. See [Schema changes and existing data](#schema-changes-and-existing-data).
+9. Merge the findings into one list. Use the severity scale in [references/findings.md](references/findings.md).
+10. Drop duplicate comments. When two reviews report the same issue, keep one finding, use the higher severity, and name both sources.
+11. Report only issues that are actionable and reasonably well-supported.
+12. Distinguish defects from suggestions.
+13. Number the consolidated findings from 1, in the priority order in [references/findings.md](references/findings.md). Continue that sequence for optional suggestions. The reader uses these numbers to say which items to address or ignore.
 
 ## Which reviews to run
 
@@ -58,6 +59,7 @@ End with:
 
 ## Related
 
+- Coding conventions: [references/conventions.md](references/conventions.md)
 - Implementation: [implement-feature](../implement-feature/SKILL.md)
 - Plan review: [review-plan](../review-plan/SKILL.md)
 - Paths: `.ai/README.md`
