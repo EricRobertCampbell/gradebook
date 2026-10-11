@@ -65,12 +65,13 @@ When you create a branch or a commit, follow [Branches and commits](#branches-an
 
 ## Branches and commits
 
-Name a new implementation branch with a short kebab-case summary. When a GitHub issue exists, include its number:
+Name a new implementation branch:
 
 ```text
-feat/clear-mark-confirm
-fix/iss-12-database-startup-error
+cursor/iss-<issue number>-<issue slug>
 ```
+
+`<issue number>` is the GitHub issue number. `<issue slug>` is a short kebab-case summary of the issue, with no spaces. Example: `cursor/iss-12-clear-mark-confirm`.
 
 Write each commit with the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) formula. This repo's changelog is generated from those messages with Release Please.
 
