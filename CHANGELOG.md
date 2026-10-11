@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/EricRobertCampbell/gradebook/compare/v0.3.1...v0.4.0) (2026-10-11)
+
+
+### Features
+
+* agentic workflow ([6eeda57](https://github.com/EricRobertCampbell/gradebook/commit/6eeda57986e0b537aed0ce6f06d932e83ea1f654))
+* **grading:** excuse a category or sub-category ([4920e80](https://github.com/EricRobertCampbell/gradebook/commit/4920e8093aa7f196baeefb35ea315cf123cd2846)), closes [#36](https://github.com/EricRobertCampbell/gradebook/issues/36)
+* **grading:** highlight the student row while entering a mark ([857ea08](https://github.com/EricRobertCampbell/gradebook/commit/857ea08c8cd5a0d02752bc0bcc95250732a23608)), closes [#37](https://github.com/EricRobertCampbell/gradebook/issues/37)
+* **grading:** keep a score when a mark is exempt ([8c20a71](https://github.com/EricRobertCampbell/gradebook/commit/8c20a7124570d304503891b65d476ec46ca866fc)), closes [#35](https://github.com/EricRobertCampbell/gradebook/issues/35)
+* **grading:** keep one note on a student's assessment ([a1ff9da](https://github.com/EricRobertCampbell/gradebook/commit/a1ff9dad6a319d3d86d6e4028a32d5eb474200ce)), closes [#33](https://github.com/EricRobertCampbell/gradebook/issues/33)
+* show a raincloud beside each score histogram ([9f0b8aa](https://github.com/EricRobertCampbell/gradebook/commit/9f0b8aaf1b2be43566b4e6b68d929d21115113a7)), closes [#38](https://github.com/EricRobertCampbell/gradebook/issues/38)
+
 ## [0.3.1](https://github.com/EricRobertCampbell/gradebook/compare/v0.3.0...v0.3.1) (2026-09-28)
 
 
